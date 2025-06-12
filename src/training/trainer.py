@@ -15,6 +15,7 @@ from transformers import (
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from trl import PPOTrainer, PPOConfig, DPOTrainer
+from trl import DPOConfig
 import wandb
 
 from ..tools.executor import ToolExecutor
@@ -238,21 +239,24 @@ class ToolTrainer:
         preference_dataset = self._create_preference_dataset()
         
         # DPO Trainer
+      
         dpo_trainer = DPOTrainer(
             model=self.model,
             ref_model=None,
-            args=TrainingArguments(
+            args=DPOConfig(
                 output_dir=str(self.output_dir),
                 num_train_epochs=self.config["training"].get("num_epochs", 1),
                 per_device_train_batch_size=self.config["training"].get("batch_size", 4),
                 learning_rate=self.config["training"].get("learning_rate", 5e-7),
                 logging_steps=10,
                 save_steps=500,
-                report_to="wandb" if self.config.get("wandb", {}).get("enabled") else None
+                report_to="wandb" if self.config.get("wandb", {}).get("enabled") else None,
+                beta=self.config["training"].get("dpo_beta", 0.1),
+
             ),
-            beta=self.config["training"].get("dpo_beta", 0.1),
+            #beta=self.config["training"].get("dpo_beta", 0.1),
             train_dataset=preference_dataset,
-            tokenizer=self.tokenizer
+            processing_class=self.tokenizer
         )
         
         # Train
