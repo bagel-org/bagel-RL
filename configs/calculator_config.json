@@ -1,9 +1,9 @@
 {
   "model": {
-    "name": "microsoft/DialoGPT-medium",
-    "trust_remote_code": false,
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "trust_remote_code": true,
     "torch_dtype": "float16",
-    "device_map": "auto"
+    "device_map": "mps"
   },
   "training": {
     "method": "sft",

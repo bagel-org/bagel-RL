@@ -137,7 +137,7 @@ class ToolTrainer:
             learning_rate=self.config["training"].get("learning_rate", 5e-5),
             warmup_steps=self.config["training"].get("warmup_steps", 100),
             logging_steps=10,
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             eval_steps=100,
             save_steps=500,
             save_total_limit=3,
@@ -146,7 +146,7 @@ class ToolTrainer:
             greater_is_better=False,
             report_to="wandb" if self.config.get("wandb", {}).get("enabled") else None,
             dataloader_pin_memory=False,
-            fp16=True,
+            fp16=False, #turn it to true if using gpu
             max_grad_norm=1.0
         )
         
