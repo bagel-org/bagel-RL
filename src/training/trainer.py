@@ -259,11 +259,13 @@ class ToolTrainer:
                 save_steps=500,
                 report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
                 beta=self.config["training"].get("dpo_beta", 0.1),
+                label_names=['labels']
 
             ),
             #beta=self.config["training"].get("dpo_beta", 0.1),
             train_dataset=preference_dataset,
-            processing_class=self.tokenizer
+            processing_class=self.tokenizer,
+            
         )
         
         # Train
