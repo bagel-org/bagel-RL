@@ -14,7 +14,7 @@ from transformers import (
 )
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
-from trl import PPOTrainer, PPOConfig, DPOTrainer
+from trl import DPOTrainer
 from trl import DPOConfig
 from torch.utils.tensorboard import SummaryWriter
 
@@ -116,14 +116,12 @@ class ToolTrainer:
         """Train the model based on the specified method."""
         if self.training_method == "sft":
             self._train_sft(resume_from_checkpoint)
-        elif self.training_method == "ppo":
-            self._train_ppo(resume_from_checkpoint)
         elif self.training_method == "dpo":
             self._train_dpo(resume_from_checkpoint)
         elif self.training_method == "teacher_mode":
             self._train_teacher_mode(resume_from_checkpoint)
         else:
-            raise ValueError(f"Unknown training method: {self.training_method}")
+            raise ValueError(f"Unknown training method: {self.training_method}. Supported methods: sft, dpo, teacher_mode")
     
     def _train_sft(self, resume_from_checkpoint: Optional[str] = None):
         """Supervised fine-tuning."""
@@ -144,8 +142,9 @@ class ToolTrainer:
             learning_rate=self.config["training"].get("learning_rate", 5e-5),
             warmup_steps=self.config["training"].get("warmup_steps", 100),
             logging_steps=10,
-            eval_strategy="steps",
+            evaluation_strategy="steps",
             eval_steps=100,
+            save_strategy="steps",
             save_steps=500,
             save_total_limit=3,
             load_best_model_at_end=True,
@@ -170,7 +169,8 @@ class ToolTrainer:
             train_dataset=tokenized_train,
             eval_dataset=tokenized_eval,
             data_collator=data_collator,
-            tokenizer=self.tokenizer
+            tokenizer=self.tokenizer,
+            label_names=["labels"]  # Fix the PEFT warning
         )
         
         # Train
@@ -179,63 +179,6 @@ class ToolTrainer:
         # Save final model
         trainer.save_model()
         self.tokenizer.save_pretrained(self.output_dir)
-    
-    def _train_ppo(self, resume_from_checkpoint: Optional[str] = None):
-        """PPO training with tool success rewards."""
-        logger.info("Starting PPO training...")
-        
-        # PPO Config
-        ppo_config = PPOConfig(
-            model_name=self.config["model"]["name"],
-            learning_rate=self.config["training"].get("learning_rate", 1e-5),
-            batch_size=self.config["training"].get("batch_size", 4),
-            mini_batch_size=self.config["training"].get("mini_batch_size", 2),
-            ppo_epochs=self.config["training"].get("ppo_epochs", 4),
-            gradient_accumulation_steps=self.config["training"].get("gradient_accumulation_steps", 1),
-            optimize_cuda_cache=True,
-            early_stopping=True,
-            target_kl=0.1,
-            seed=self.config.get("seed", 42)
-        )
-        
-        # Initialize PPO trainer
-        ppo_trainer = PPOTrainer(
-            config=ppo_config,
-            model=self.model,
-            ref_model=None,  # Will create reference model automatically
-            tokenizer=self.tokenizer,
-            dataset=self.train_dataset
-        )
-        
-        # Training loop
-        for epoch in range(self.config["training"].get("num_epochs", 1)):
-            for batch_idx, batch in enumerate(ppo_trainer.dataloader):
-                # Generate responses
-                query_tensors = batch["input_ids"]
-                response_tensors = ppo_trainer.generate(
-                    query_tensors,
-                    return_prompt=False,
-                    length_sampler=lambda: self.config["training"].get("max_length", 512),
-                    batch_size=len(query_tensors)
-                )
-                
-                # Calculate rewards based on tool execution success
-                rewards = []
-                for response in response_tensors:
-                    decoded_response = self.tokenizer.decode(response, skip_special_tokens=False)
-                    reward = self._calculate_tool_reward(decoded_response)
-                    rewards.append(torch.tensor(reward))
-                
-                # PPO step
-                stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
-                
-                # Log stats to TensorBoard
-                if self.writer is not None:
-                    for key, value in stats.items():
-                        self.writer.add_scalar(f"ppo/{key}", value, global_step=epoch * len(ppo_trainer.dataloader) + batch_idx)
-                
-        # Save model
-        ppo_trainer.save_model(str(self.output_dir))
     
     def _train_dpo(self, resume_from_checkpoint: Optional[str] = None):
         """Direct Preference Optimization training."""
@@ -246,7 +189,6 @@ class ToolTrainer:
         preference_dataset = self._create_preference_dataset()
         
         # DPO Trainer
-      
         dpo_trainer = DPOTrainer(
             model=self.model,
             ref_model=None,
@@ -260,12 +202,9 @@ class ToolTrainer:
                 report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
                 beta=self.config["training"].get("dpo_beta", 0.1),
                 label_names=['labels']
-
             ),
-            #beta=self.config["training"].get("dpo_beta", 0.1),
             train_dataset=preference_dataset,
             processing_class=self.tokenizer,
-            
         )
         
         # Train
@@ -304,28 +243,6 @@ class ToolTrainer:
             batched=True,
             remove_columns=dataset.column_names
         )
-    
-    def _calculate_tool_reward(self, response: str) -> float:
-        """Calculate reward based on tool execution success."""
-        try:
-            # Extract tool calls from response
-            if "[TOOL_CALL]" in response and "[/TOOL_CALL]" in response:
-                # Successfully formatted tool call
-                reward = 1.0
-                
-                # Additional reward for successful execution
-                # (This would need actual tool execution logic)
-                # For now, just check format
-                if "parameters" in response and "name" in response:
-                    reward += 0.5
-            else:
-                # No tool call or malformed
-                reward = -0.5
-            
-            return reward
-            
-        except Exception:
-            return -1.0
     
     def _create_preference_dataset(self) -> Dataset:
         """Create preference dataset for DPO."""
