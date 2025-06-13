@@ -142,7 +142,7 @@ class ToolTrainer:
             learning_rate=self.config["training"].get("learning_rate", 5e-5),
             warmup_steps=self.config["training"].get("warmup_steps", 100),
             logging_steps=10,
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             eval_steps=100,
             save_strategy="steps",
             save_steps=500,
@@ -170,7 +170,7 @@ class ToolTrainer:
             eval_dataset=tokenized_eval,
             data_collator=data_collator,
             tokenizer=self.tokenizer,
-            label_names=["labels"]  # Fix the PEFT warning
+            #label_names=["labels"]  # Fix the PEFT warning
         )
         
         # Train

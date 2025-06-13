@@ -19,7 +19,7 @@
     "lora_dropout": 0.1
   },
   "data": {
-    "strategy": "teacher_mode",
+    "strategy": "manual_templates",
     "max_samples": 1000,
     "train_split": 0.8
   },

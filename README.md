@@ -22,10 +22,10 @@ source venv/bin/activate
 2. **Run Basic Training**:
 ```bash
 # Supervised fine-tuning with manual templates
-python train.py --config configs/calculator_config.json
+python train.py --config configs/sft_calculator_config.json --outdir outputs/calculator_config
 
-# PPO training with teacher mode
-python train.py --config configs/ppo_config.json
+# DPO training with teacher mode
+python train.py --config configs/dpo_calculator_config.json --outdir outputs/calculator_config
 ```
 
 3. **Evaluate Trained Model**:
@@ -79,7 +79,7 @@ The framework uses JSON configuration files to define:
 ```json
 {
   "training": {
-    "method": "sft",  // "sft", "ppo", "dpo", "teacher_mode"
+    "method": "sft",  // "sft", "dpo", "teacher_mode"
     "num_epochs": 3,
     "learning_rate": 5e-5,
     "batch_size": 4,
@@ -114,9 +114,8 @@ The framework uses JSON configuration files to define:
 ## Supported Training Methods
 
 1. **Supervised Fine-tuning (SFT)**: Standard next-token prediction on tool-augmented conversations
-2. **PPO**: Proximal Policy Optimization with tool success rewards
-3. **DPO**: Direct Preference Optimization using preference pairs
-4. **Teacher Mode**: Self-supervised data generation (Toolformer-style)
+2. **DPO**: Direct Preference Optimization using preference pairs
+3. **Teacher Mode**: Self-supervised data generation (Toolformer-style)
 
 ## Data Generation Strategies
 
@@ -141,10 +140,6 @@ You can easily add custom tools by extending the `ToolExecutor` class.
 python train.py --config configs/calculator_config.json --output-dir outputs/calculator-sft
 ```
 
-### Example 2: Multi-tool with PPO
-```bash
-python train.py --config configs/ppo_config.json --output-dir outputs/multi-tool-ppo
-```
 
 ## Evaluation
 
@@ -197,18 +192,7 @@ This playground is designed for:
 - **Researchers**: Reproducible tool use experiments
 - **Prototyping**: Quick experimentation with tool integration
 
-## Citation
 
-If you use this playground in your research, please cite:
-
-```bibtex
-@software{llm_tool_training_playground,
-  title={LLM Tool Use Training Playground},
-  author={Your Name},
-  year={2025},
-  url={https://github.com/yourusername/llm-tool-training-playground}
-}
-```
 
 ## Contributing
 
