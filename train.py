@@ -10,7 +10,6 @@ import logging
 from pathlib import Path
 
 import torch
-import wandb
 from rich.console import Console
 
 from src.data.data_generator import DataGenerator
@@ -62,13 +61,8 @@ def main():
     logger.info(f"Training method: {config['training']['method']}")
     logger.info(f"Data strategy: {config['data']['strategy']}")
     
-    # Initialize wandb if configured
-    if config.get("wandb", {}).get("enabled", False):
-        wandb.init(
-            project=config["wandb"]["project"],
-            name=config["wandb"].get("run_name"),
-            config=config
-        )
+    # TensorBoard logging is handled by the trainer itself
+    # No additional initialization needed here
     
     # Set random seeds for reproducibility
     torch.manual_seed(config.get("seed", 42))
@@ -111,14 +105,19 @@ def main():
         
         console.print("✅ [bold green]Training completed successfully![/bold green]")
         
+        # Clean up resources
+        trainer.cleanup()
+        
     except Exception as e:
         logger.error(f"Training failed: {str(e)}")
         console.print(f"❌ [bold red]Training failed: {str(e)}[/bold red]")
+        # Clean up even on failure
+        if 'trainer' in locals():
+            trainer.cleanup()
         raise
     
-    finally:
-        if wandb.run is not None:
-            wandb.finish()
+    # No cleanup needed for TensorBoard
+    # The trainer handles the SummaryWriter lifecycle
 
 
 if __name__ == "__main__":

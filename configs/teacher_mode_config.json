@@ -77,10 +77,9 @@
     "metrics": ["tool_accuracy", "format_correctness", "execution_success", "response_quality"],
     "eval_steps": 25
   },
-  "wandb": {
-    "enabled": false,
-    "project": "llm-tool-training-playground",
-    "run_name": "teacher-mode-multitool"
+  "tensorboard": {
+    "enabled": true,
+    "log_dir": "outputs/runs"
   },
   "seed": 42
 }

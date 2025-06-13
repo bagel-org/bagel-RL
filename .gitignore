@@ -158,3 +158,12 @@ cython_debug/
 #  project, this template is based on a Python project template available from:
 #  https://github.com/github/gitignore/blob/main/Python.gitignore
 .idea/
+
+# TensorBoard logs
+runs/
+logs/
+
+# Model outputs and training artifacts
+outputs/checkpoints/
+outputs/models/
+outputs/logs/

@@ -6,8 +6,8 @@
     "device_map": "mps"
   },
   "training": {
-    "method": "sft",
-    "num_epochs": 3,
+    "method": "dpo",
+    "num_epochs": 100,
     "learning_rate": 5e-5,
     "batch_size": 4,
     "gradient_accumulation_steps": 1,
@@ -77,10 +77,9 @@
     "metrics": ["tool_accuracy", "response_quality", "tool_format_correctness"],
     "eval_steps": 100
   },
-  "wandb": {
-    "enabled": false,
-    "project": "llm-tool-training",
-    "run_name": "calculator-experiment"
+  "tensorboard": {
+    "enabled": true,
+    "log_dir": "outputs/runs"
   },
   "seed": 42
 }

@@ -16,7 +16,7 @@ from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from trl import PPOTrainer, PPOConfig, DPOTrainer
 from trl import DPOConfig
-import wandb
+from torch.utils.tensorboard import SummaryWriter
 
 from ..tools.executor import ToolExecutor
 
@@ -38,6 +38,12 @@ class ToolTrainer:
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.output_dir = output_dir
+        
+        # Initialize TensorBoard logging
+        self.writer = None
+        if self.config.get("tensorboard", {}).get("enabled", False):
+            log_dir = self.config.get("tensorboard", {}).get("log_dir", str(output_dir / "runs"))
+            self.writer = SummaryWriter(log_dir=log_dir)
         
         # Initialize model and tokenizer
         self.tokenizer = self._load_tokenizer()
@@ -145,7 +151,7 @@ class ToolTrainer:
             load_best_model_at_end=True,
             metric_for_best_model="eval_loss",
             greater_is_better=False,
-            report_to="wandb" if self.config.get("wandb", {}).get("enabled") else None,
+            report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
             dataloader_pin_memory=False,
             fp16=False, #turn it to true if using gpu
             max_grad_norm=1.0
@@ -203,7 +209,7 @@ class ToolTrainer:
         
         # Training loop
         for epoch in range(self.config["training"].get("num_epochs", 1)):
-            for batch in ppo_trainer.dataloader:
+            for batch_idx, batch in enumerate(ppo_trainer.dataloader):
                 # Generate responses
                 query_tensors = batch["input_ids"]
                 response_tensors = ppo_trainer.generate(
@@ -223,10 +229,11 @@ class ToolTrainer:
                 # PPO step
                 stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
                 
-                # Log stats
-                if wandb.run is not None:
-                    wandb.log(stats)
-        
+                # Log stats to TensorBoard
+                if self.writer is not None:
+                    for key, value in stats.items():
+                        self.writer.add_scalar(f"ppo/{key}", value, global_step=epoch * len(ppo_trainer.dataloader) + batch_idx)
+                
         # Save model
         ppo_trainer.save_model(str(self.output_dir))
     
@@ -250,7 +257,7 @@ class ToolTrainer:
                 learning_rate=self.config["training"].get("learning_rate", 5e-7),
                 logging_steps=10,
                 save_steps=500,
-                report_to="wandb" if self.config.get("wandb", {}).get("enabled") else None,
+                report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
                 beta=self.config["training"].get("dpo_beta", 0.1),
 
             ),
@@ -339,3 +346,9 @@ class ToolTrainer:
             })
         
         return Dataset.from_list(preference_data)
+    
+    def cleanup(self):
+        """Clean up resources."""
+        if self.writer is not None:
+            self.writer.close()
+            logger.info("TensorBoard writer closed")

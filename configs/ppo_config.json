@@ -46,10 +46,9 @@
     "metrics": ["tool_accuracy", "reward"],
     "eval_steps": 50
   },
-  "wandb": {
+  "tensorboard": {
     "enabled": true,
-    "project": "llm-tool-training",
-    "run_name": "ppo-calculator"
+    "log_dir": "outputs/runs"
   },
   "seed": 42
 }
