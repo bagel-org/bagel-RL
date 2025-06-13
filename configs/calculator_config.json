@@ -6,7 +6,7 @@
     "device_map": "mps"
   },
   "training": {
-    "method": "dpo",
+    "method": "sft",
     "num_epochs": 100,
     "learning_rate": 5e-5,
     "batch_size": 4,
@@ -19,8 +19,8 @@
     "lora_dropout": 0.1
   },
   "data": {
-    "strategy": "manual_templates",
-    "max_samples": 200,
+    "strategy": "teacher_mode",
+    "max_samples": 1000,
     "train_split": 0.8
   },
   "tools": [
