@@ -7,7 +7,9 @@ from typing import Dict, Any, List, Tuple, Optional
 from datasets import Dataset
 import pandas as pd
 from ..tools.executor import ToolExecutor
-
+import sys
+import requests
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +34,48 @@ class DataGenerator:
         else:
             raise ValueError(f"Unknown data strategy: {self.strategy}")
     
+
+    def _download_from_google_drive(self, folder_url, destination_dir):
+
+        import gdown, pathlib, zipfile
+
+        destination_dir = pathlib.Path(destination_dir)
+
+        files = gdown.download_folder(
+            url = folder_url,
+            quiet = False,
+            use_cookies = False,
+            output = destination_dir.as_posix()
+
+        )
+
+        zip_path = next(p for p in files if p.endswith('data.zip'))
+
+        print("✔ downloaded", zip_path)
+
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(destination_dir.as_posix()+"/data")
+        return 
+
+
+
+
+    
     def _prepare_toolbench_data(self) -> Tuple[Dataset, Dataset]:
-        """Generate synthetic ToolBench-style data."""
-        logger.info("Generating synthetic ToolBench-style data...")
+        """Get toolbench data."""
+        logger.info("Obtaining toolbench data...")
         synthetic_data = self._generate_synthetic_toolbench_data()
+
+        #download the data from google drive link 
+        destination_dir = './data/toolbench/'
+        if not os.path.exists(destination_dir):
+            folder_url = 'https://drive.google.com/drive/folders/1TysbSWYpP8EioFu9xPJtpbJZMLLmwAmL'
+            destination_dir = './data/toolbench/'
+            self._download_from_google_drive(folder_url, destination_dir)
+        
+
+        import ipdb;ipdb.set_trace()
+        
         return self._split_dataset(synthetic_data)
     
     def _prepare_teacher_mode_data(self) -> Tuple[Dataset, Dataset]:
