@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+
 import torch
 from transformers import (
     AutoTokenizer, 
@@ -94,6 +95,8 @@ class ToolTrainer:
             model_config["name"],
             trust_remote_code=model_config.get("trust_remote_code", False),
             torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
+            load_in_4bit = True, 
+            attn_implementation="flash_attention_2",
             device_map=model_config.get("device_map", "auto")
         )
         
@@ -162,9 +165,12 @@ class ToolTrainer:
         peft_cfg = LoraConfig(
         r=64, lora_alpha=128, lora_dropout=0.05,
         bias="none", task_type="CAUSAL_LM",
-        target_modules=["q_proj","k_proj","v_proj","o_proj",
-                        "gate_proj","up_proj","down_proj"]  # fits Qwen block names
+        # target_modules=["q_proj","k_proj","v_proj","o_proj",
+        #                 "gate_proj","up_proj","down_proj"]  # fits Qwen block names
+        target_modules = ["q_proj","v_proj"]
         )
+
+        self.model_fin = get_peft_model(self.model, peft_cfg)
         
 
         sft_cfg = SFTConfig(
@@ -176,7 +182,7 @@ class ToolTrainer:
         
         
         trainer = SFTTrainer(
-            model           = self.model,
+            model           = self.model_fin,
             train_dataset   = self.train_dataset,
             eval_dataset    = self.eval_dataset,
             peft_config     = peft_cfg,
