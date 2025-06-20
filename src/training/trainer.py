@@ -14,8 +14,8 @@ from transformers import (
 )
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
-from trl import DPOTrainer
-from trl import DPOConfig
+from trl import DPOTrainer, SFTTrainer
+from trl import DPOConfig, SFTConfig
 from torch.utils.tensorboard import SummaryWriter
 
 from ..tools.executor import ToolExecutor
@@ -48,6 +48,8 @@ class ToolTrainer:
         # Initialize model and tokenizer
         self.tokenizer = self._load_tokenizer()
         self.model = self._load_model()
+
+       
         
         # Initialize tool executor for evaluation
         self.tool_executor = ToolExecutor(config["tools"])
@@ -63,18 +65,19 @@ class ToolTrainer:
         
         tokenizer = AutoTokenizer.from_pretrained(
             model_name,
+            padding_side=self.config["training"].get("tokenizer_padding_side",False),
             trust_remote_code=self.config["model"].get("trust_remote_code", False)
         )
         
-        # Add special tokens for tool calls
-        special_tokens = {
-            "additional_special_tokens": [
-                "[TOOL_CALL]", "[/TOOL_CALL]", 
-                "[RESULT]", "[/RESULT]"
-            ]
-        }
+        # # Add special tokens for tool calls
+        # special_tokens = {
+        #     "additional_special_tokens": [
+        #         "[TOOL_CALL]", "[/TOOL_CALL]", 
+        #         "[RESULT]", "[/RESULT]"
+        #     ]
+        # }
         
-        tokenizer.add_special_tokens(special_tokens)
+        # tokenizer.add_special_tokens(special_tokens)
         
         # Set pad token if not exists
         if tokenizer.pad_token is None:
@@ -95,7 +98,7 @@ class ToolTrainer:
         )
         
         # Resize embeddings for new tokens
-        model.resize_token_embeddings(len(self.tokenizer))
+        #model.resize_token_embeddings(len(self.tokenizer))
         
         # Apply LoRA if specified
         if self.config["training"].get("use_lora", True):
@@ -127,9 +130,6 @@ class ToolTrainer:
         """Supervised fine-tuning."""
         logger.info("Starting supervised fine-tuning...")
         
-        # Tokenize datasets
-        tokenized_train = self._tokenize_dataset(self.train_dataset)
-        tokenized_eval = self._tokenize_dataset(self.eval_dataset)
         
         # Training arguments
         training_args = TrainingArguments(
@@ -152,26 +152,49 @@ class ToolTrainer:
             greater_is_better=False,
             report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
             dataloader_pin_memory=False,
-            fp16=False, #turn it to true if using gpu
-            max_grad_norm=1.0
+            fp16=True, #turn it to true if using gpu
+            max_grad_norm=1.0,
+            optim = "adamw_torch" ,
+            label_names = ["labels"]
+            )
+       
+
+        peft_cfg = LoraConfig(
+        r=64, lora_alpha=128, lora_dropout=0.05,
+        bias="none", task_type="CAUSAL_LM",
+        target_modules=["q_proj","k_proj","v_proj","o_proj",
+                        "gate_proj","up_proj","down_proj"]  # fits Qwen block names
         )
         
-        # Data collator
-        data_collator = DataCollatorForLanguageModeling(
-            tokenizer=self.tokenizer,
-            mlm=False
+
+        sft_cfg = SFTConfig(
+        dataset_text_field = "messages",   # TRL uses messages-to-chat-template
+        packing            = True,        # token-pack examples efficiently
+        max_seq_length     = 2048
         )
         
+        
+        
+        trainer = SFTTrainer(
+            model           = self.model,
+            train_dataset   = self.train_dataset,
+            eval_dataset    = self.eval_dataset,
+            peft_config     = peft_cfg,
+            args            = training_args,
+            processing_class       = self.tokenizer,
+            
+        )
+
         # Initialize trainer
-        trainer = Trainer(
-            model=self.model,
-            args=training_args,
-            train_dataset=tokenized_train,
-            eval_dataset=tokenized_eval,
-            data_collator=data_collator,
-            tokenizer=self.tokenizer,
-            #label_names=["labels"]  # Fix the PEFT warning
-        )
+        # trainer = Trainer(
+        #     model=self.model,
+        #     args=training_args,
+        #     train_dataset=tokenized_train,
+        #     eval_dataset=tokenized_eval,
+        #     data_collator=data_collator,
+        #     tokenizer=self.tokenizer,
+        #     #label_names=["labels"]  # Fix the PEFT warning
+        # )
         
         # Train
         trainer.train(resume_from_checkpoint=resume_from_checkpoint)
@@ -225,6 +248,7 @@ class ToolTrainer:
         """Tokenize a dataset."""
         def tokenize_function(examples):
             # Tokenize the text
+            
             tokenized = self.tokenizer(
                 examples["text"],
                 truncation=True,

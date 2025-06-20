@@ -10,6 +10,7 @@ from ..tools.executor import ToolExecutor
 import sys
 import requests
 import os
+from datasets import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +60,14 @@ class DataGenerator:
 
 
 
+    def _role_map(self,raw_role: str) -> str:
+        """Convert ToolBench role tags to ChatML-compatible ones."""
+        if raw_role == "function":      # ToolBench writes tool output with this tag
+            return "tool"               # Qwen2.5 chat template recognises 'tool'
+        return raw_role                 # system / user / assistant stay as-is
 
     
-    def _prepare_toolbench_data(self) -> Tuple[Dataset, Dataset]:
+    def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
         """Get toolbench data."""
         logger.info("Obtaining toolbench data...")
         synthetic_data = self._generate_synthetic_toolbench_data()
@@ -73,10 +79,55 @@ class DataGenerator:
             destination_dir = './data/toolbench/'
             self._download_from_google_drive(folder_url, destination_dir)
         
-
-        import ipdb;ipdb.set_trace()
+        with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_train.json', 'r') as f:
+            tool_data_train = json.load(f)
         
-        return self._split_dataset(synthetic_data)
+        with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_eval.json', 'r') as f:
+            tool_data_eval = json.load(f)
+
+        rows = []
+        print("Preparing Training Dataset")
+        for sample in tool_data_train:
+            convo = []
+            for block in sample["conversations"]:
+                convo.append({
+                    "role":    self._role_map(block["from"]),
+                    "content": block["value"].strip()
+                })
+
+                # emit an example whenever the assistant has just spoken
+                if emit_partial and block["from"] == "assistant":
+                    rows.append({"messages": convo.copy()})
+
+            # also keep the whole trajectory once (useful for full-context SFT)
+            if not emit_partial:
+                rows.append({"messages": convo})
+        
+        train_dataset = Dataset.from_list(rows)
+
+        print("Preparing Evaluation Dataset")
+
+        rows_eval = []
+        for sample in tool_data_eval:
+            convo = []
+            for block in sample["conversations"]:
+                convo.append({
+                    "role":    self._role_map(block["from"]),
+                    "content": block["value"].strip()
+                })
+
+                # emit an example whenever the assistant has just spoken
+                if emit_partial and block["from"] == "assistant":
+                    rows_eval.append({"messages": convo.copy()})
+
+            # also keep the whole trajectory once (useful for full-context SFT)
+            if not emit_partial:
+                rows_eval.append({"messages": convo})
+
+        
+        test_dataset = Dataset.from_list(rows_eval)
+        
+        return train_dataset, test_dataset
     
     def _prepare_teacher_mode_data(self) -> Tuple[Dataset, Dataset]:
         """Generate data using teacher mode (Toolformer-style)."""
