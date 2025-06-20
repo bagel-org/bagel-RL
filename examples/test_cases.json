@@ -1,0 +1,52 @@
+[
+  {
+    "prompt": "Human: What is 25 multiplied by 4?",
+    "expected_tool": "calculator",
+    "expected_params": {"expression": "25 * 4"}
+  },
+  {
+    "prompt": "Human: I need to compute 15 plus 30 minus 8",
+    "expected_tool": "calculator", 
+    "expected_params": {"expression": "15 + 30 - 8"}
+  },
+  {
+    "prompt": "Human: What's the weather forecast for New York City?",
+    "expected_tool": "weather",
+    "expected_params": {"location": "New York City"}
+  },
+  {
+    "prompt": "Human: Can you check the weather in London?",
+    "expected_tool": "weather",
+    "expected_params": {"location": "London"}
+  },
+  {
+    "prompt": "Human: Search for Python machine learning tutorials",
+    "expected_tool": "search",
+    "expected_params": {"query": "Python machine learning tutorials"}
+  },
+  {
+    "prompt": "Human: Find information about reinforcement learning",
+    "expected_tool": "search",
+    "expected_params": {"query": "reinforcement learning"}
+  },
+  {
+    "prompt": "Human: Calculate the square root of 144",
+    "expected_tool": "calculator",
+    "expected_params": {"expression": "144 ** 0.5"}
+  },
+  {
+    "prompt": "Human: What's the temperature in Tokyo right now?",
+    "expected_tool": "weather",
+    "expected_params": {"location": "Tokyo"}
+  },
+  {
+    "prompt": "Human: Look up information about neural networks",
+    "expected_tool": "search", 
+    "expected_params": {"query": "neural networks"}
+  },
+  {
+    "prompt": "Human: Compute 2 to the power of 8",
+    "expected_tool": "calculator",
+    "expected_params": {"expression": "2 ** 8"}
+  }
+]

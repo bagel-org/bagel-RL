@@ -1,0 +1,85 @@
+{
+  "model": {
+    "name": "microsoft/DialoGPT-small",
+    "trust_remote_code": false,
+    "torch_dtype": "float16",
+    "device_map": "auto"
+  },
+  "training": {
+    "method": "teacher_mode",
+    "num_epochs": 2,
+    "learning_rate": 3e-5,
+    "batch_size": 2,
+    "gradient_accumulation_steps": 2,
+    "warmup_steps": 50,
+    "max_length": 384,
+    "use_lora": true,
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.1
+  },
+  "data": {
+    "strategy": "teacher_mode",
+    "max_samples": 150,
+    "train_split": 0.85
+  },
+  "tools": [
+    {
+      "name": "calculator",
+      "description": "Perform mathematical calculations including basic arithmetic and simple expressions",
+      "type": "function",
+      "function": "calculator",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "description": "Mathematical expression to evaluate (supports +, -, *, /, **, parentheses)"
+          }
+        },
+        "required": ["expression"]
+      }
+    },
+    {
+      "name": "weather",
+      "description": "Get current weather information for any location worldwide",
+      "type": "function", 
+      "function": "weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City name, state/country (e.g., 'Paris', 'New York, NY', 'Tokyo, Japan')"
+          }
+        },
+        "required": ["location"]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search for information on the internet about any topic",
+      "type": "function",
+      "function": "search", 
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query or topic to find information about"
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  ],
+  "evaluation": {
+    "metrics": ["tool_accuracy", "format_correctness", "execution_success", "response_quality"],
+    "eval_steps": 25
+  },
+  "tensorboard": {
+    "enabled": true,
+    "log_dir": "outputs/runs"
+  },
+  "seed": 42
+}
