@@ -182,7 +182,115 @@ def bitagent_to_json():
     with open('bitagent_modified.json', 'w') as output_file:
         json.dump(bitagent_list, output_file, indent=2)
 
+def coalm_to_json():
+    
+    # Read the parquet files
+    coalm1_df = pd.read_parquet('coalm1.parquet')
+    coalm2_df = pd.read_parquet('coalm2.parquet')
+    
+    # Convert DataFrames to lists of dictionaries
+    coalm1_list = coalm1_df.to_dict('records')
+    coalm2_list = coalm2_df.to_dict('records')
+    
+    # Change "instruction" field to "id" in both datasets
+    for entry in coalm1_list:
+        if "instruction" in entry:
+            entry["id"] = entry.pop("instruction")
+    
+    for entry in coalm2_list:
+        if "instruction" in entry:
+            entry["id"] = entry.pop("instruction")
+
+    # Add conversations field to coalm1_list
+    for entry in coalm1_list:
+        entry["conversations"] = []
+    # Add conversations field to coalm2_list
+    for entry in coalm2_list:
+        entry["conversations"] = []
+    
+    # Process "input" fields in coalm1_list
+    for entry in coalm1_list:
+        if "input" in entry and isinstance(entry["input"], str):
+            parts = entry["input"].split(":", 1)  # Split on first occurrence only
+            if len(parts) == 2:
+                entry["conversations"].append({
+                    "from": parts[0].strip(),
+                    "value": parts[1].strip()
+                })
+            else:
+                entry["conversations"].append({
+                    "from": "",
+                    "value": ""
+                })
+    
+    # Process "input" fields in coalm2_list
+    for entry in coalm2_list:
+        if "input" in entry and isinstance(entry["input"], str):
+            parts = entry["input"].split(":", 1)  # Split on first occurrence only
+            if len(parts) == 2:
+                entry["conversations"].append({
+                    "from": parts[0].strip(),
+                    "value": parts[1].strip()
+                })
+            else:
+                entry["conversations"].append({
+                    "from": "",
+                    "value": ""
+                })
+    
+
+
+    # Process "output" fields in coalm1_list
+    for entry in coalm1_list:
+        if "output" in entry and isinstance(entry["output"], str):
+            parts = entry["output"].split(":", 1)  # Split on first occurrence only
+            if len(parts) == 2 and parts[0] == "System":
+                entry["conversations"].append({
+                    "from": parts[0].strip(),
+                    "value": parts[1].strip()
+                })
+            else:
+                entry["conversations"].append({
+                    "from": "",
+                    "value": entry["output"]
+                })
+    
+
+
+    # Process "output" fields in coalm2_list
+    for entry in coalm2_list:
+        if "output" in entry and isinstance(entry["output"], str):
+            parts = entry["output"].split(":", 1)  # Split on first occurrence only
+            if len(parts) == 2 and parts[0] == "System":
+                entry["conversations"].append({
+                    "from": parts[0].strip(),
+                    "value": parts[1].strip()
+                })
+            else:
+                entry["conversations"].append({
+                    "from": "",
+                    "value": entry["output"]
+                })
+    
+    # Remove "input" and "output" fields from all entries
+    for entry in coalm1_list:
+        entry.pop("input", None)
+        entry.pop("output", None)
+    
+    for entry in coalm2_list:
+        entry.pop("input", None)
+        entry.pop("output", None)
+    
+    # Save to JSON files
+    with open('coalm1.json', 'w') as f1:
+        json.dump(coalm1_list, f1, indent=2)
+    
+    with open('coalm2.json', 'w') as f2:
+        json.dump(coalm2_list, f2, indent=2)
+    
+
 if __name__ == "__main__":
     #toolace_to_jsonl()
     #mt_5k_to_json()
-    bitagent_to_json()
+    #bitagent_to_json()
+    coalm_to_json()
