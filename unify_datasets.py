@@ -288,9 +288,52 @@ def coalm_to_json():
     with open('coalm2.json', 'w') as f2:
         json.dump(coalm2_list, f2, indent=2)
     
+def glaive_to_json():
+    # Read the glaive function calling dataset
+    with open('glaive-function-calling-v2.json', 'r') as f:
+        glaive_data = json.load(f)
+    
+    # Convert to unified format
+    glaive_list = []
+    for entry in glaive_data:
+        conversations = []
+        
+        if "system" in entry and isinstance(entry["system"], str):
+            parts = entry["system"].split(":", 1)  # Split on first occurrence only
+            if len(parts) == 2:
+                conversations.append({
+                    "from": parts[0].strip(),
+                    "value": parts[1].strip()
+                })
+        
+        if "chat" in entry and isinstance(entry["chat"], str):
+            chat_parts = entry["chat"].split("\n\n\n")
+            for chunk in chat_parts:
+                text = chunk.strip()
+                if not text:
+                    continue  # skip empty segments
+                parts = text.split(":", 1)  # only split on the first ':'
+                if len(parts) == 2:
+                    from_field, value_field = parts[0].strip(), parts[1].strip()
+                else:
+                    # If no ':' present, treat whole chunk as value with unknown sender
+                    from_field, value_field = "", text
+                conversations.append({
+                    "from": from_field,
+                    "value": value_field
+                })
+
+
+        
+        glaive_list.append({"conversations": conversations})
+    
+    # Save to JSON file
+    with open('glaive_modified.json', 'w') as f:
+        json.dump(glaive_list, f, indent=2)
 
 if __name__ == "__main__":
     #toolace_to_jsonl()
     #mt_5k_to_json()
     #bitagent_to_json()
-    coalm_to_json()
+    #coalm_to_json()
+    glaive_to_json()
