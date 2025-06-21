@@ -1,5 +1,6 @@
 import json
 import pandas as pd
+import ast  # local import to avoid polluting global namespace unnecessarily
 
 def toolace_to_jsonl():
     # Load the toolace.json file
@@ -99,6 +100,89 @@ def bitagent_to_json():
     # Read the parquet file
     bitagent_data = pd.read_parquet('bitagent_tool_calling_shuffle.parquet')
 
+    # Convert the DataFrame to a list of dictionaries
+    bitagent_list = bitagent_data.to_dict('records')
+
+    # Ensure each conversation entry is parsed into a list[dict]
+    def _safe_parse(raw):
+        """Try to parse a raw string (JSON-like / python-repr) into a python object.
+        Returns the original value on total failure."""
+        if not isinstance(raw, str):
+            return raw
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            try:
+                return ast.literal_eval(raw)
+            except (ValueError, SyntaxError):
+                return raw  # give up – return as-is
+            
+
+    
+    for entry in bitagent_list:
+        conv_raw = entry.get("conversation")
+
+        # Case 1: the whole field is a single string representing the convo list
+        if isinstance(conv_raw, str):
+            conv_parsed = _safe_parse(conv_raw)
+            # Make sure it's a list
+            if isinstance(conv_parsed, dict):
+                conv_parsed = [conv_parsed]
+            entry["conversations"] = conv_parsed if isinstance(conv_parsed, list) else []
+            continue  # move to next entry; it'll be processed in later loop
+
+        # Case 2: it's already an iterable (list/tuple)
+        parsed_list = []
+        for item in conv_raw or []:  # handle None
+            parsed_item = _safe_parse(item)
+            # If the parsed item is itself a list, flatten one level
+            if isinstance(parsed_item, list):
+                parsed_list.extend(parsed_item)
+            else:
+                parsed_list.append(parsed_item)
+        entry["conversations"] = parsed_list
+    
+    # Remove the "conversation" field from every entry
+    for entry in bitagent_list:
+        if "conversation" in entry:
+            del entry["conversation"]
+    
+
+    # Process each entry to change field names
+    for entry in bitagent_list:
+        for conversation in entry["conversations"]:
+            # Skip malformed items
+            if not isinstance(conversation, dict):
+                continue
+            # Change "role" to "from"
+            if "role" in conversation:
+                conversation["from"] = conversation.pop("role")
+            # Change "content" to "value"
+            if "content" in conversation:
+                conversation["value"] = conversation.pop("content")
+
+    # Remove the "tools" field from every entry
+    for entry in bitagent_list:
+        if "tools" in entry:
+            del entry["tools"]
+    
+    # Convert all "value" fields in conversations to strings
+    for entry in bitagent_list:
+        for conversation in entry["conversations"]:
+            # Skip malformed items
+            if not isinstance(conversation, dict):
+                continue
+            # Convert "value" field to string if it exists
+            if "value" in conversation:
+                if not isinstance(conversation["value"], str):
+                    conversation["value"] = str(conversation["value"])
+
+
+    # Save the modified data to a new JSON file
+    with open('bitagent_modified.json', 'w') as output_file:
+        json.dump(bitagent_list, output_file, indent=2)
+
 if __name__ == "__main__":
-    toolace_to_jsonl()
+    #toolace_to_jsonl()
     #mt_5k_to_json()
+    bitagent_to_json()
