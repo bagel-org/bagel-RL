@@ -1,14 +1,33 @@
 import json
+import pandas as pd
 
 def toolace_to_jsonl():
     # Load the toolace.json file
     with open('toolace.json', 'r') as file:
         toolace_data = json.load(file)
 
+    # Read "system" field and add it as first conversation item
+    for entry in toolace_data:
+        if "system" in entry:
+            system_value = entry["system"]
+            # Create the system message
+            system_message = {
+                "from": "system",
+                "value": system_value
+            }
+            # Insert as first item in conversations
+            entry["conversations"].insert(0, system_message)
+    
+    
     # Change "system" field to "id" in all entries
     for entry in toolace_data:
         if "system" in entry:
             entry["id"] = entry.pop("system")
+    
+    # Replace the id value with the value of the second item in conversations
+    for entry in toolace_data:
+        if "id" in entry and "conversations" in entry and len(entry["conversations"]) >= 2:
+            entry["id"] = entry["conversations"][1]["value"]
 
     # Reorder fields to put "id" before "conversations" in all entries
     for entry in toolace_data:
@@ -76,6 +95,10 @@ def mt_5k_to_json():
     with open('mt_5k_modified.json', 'w') as output_file:
         json.dump(mt_5k_data, output_file, indent=2)
 
+def bitagent_to_json():
+    # Read the parquet file
+    bitagent_data = pd.read_parquet('bitagent_tool_calling_shuffle.parquet')
+
 if __name__ == "__main__":
-    #toolace_to_jsonl()
-    mt_5k_to_json()
+    toolace_to_jsonl()
+    #mt_5k_to_json()
