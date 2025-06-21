@@ -272,14 +272,32 @@ def coalm_to_json():
                     "value": entry["output"]
                 })
     
+    # Add system message with id value as first element in conversations for coalm1_list
+    for entry in coalm1_list:
+        if "id" in entry and entry["conversations"]:
+            entry["conversations"].insert(0, {
+                "from": "System",
+                "value": entry["id"]
+            })
+    
+    # Add system message with id value as first element in conversations for coalm2_list
+    for entry in coalm2_list:
+        if "id" in entry and entry["conversations"]:
+            entry["conversations"].insert(0, {
+                "from": "System",
+                "value": entry["id"]
+            })
+    
     # Remove "input" and "output" fields from all entries
     for entry in coalm1_list:
         entry.pop("input", None)
         entry.pop("output", None)
+        entry.pop("id", None)
     
     for entry in coalm2_list:
         entry.pop("input", None)
         entry.pop("output", None)
+        entry.pop("id", None)
     
     # Save to JSON files
     with open('coalm1.json', 'w') as f1:
@@ -335,5 +353,5 @@ if __name__ == "__main__":
     #toolace_to_jsonl()
     #mt_5k_to_json()
     #bitagent_to_json()
-    #coalm_to_json()
-    glaive_to_json()
+    coalm_to_json()
+    #glaive_to_json()
