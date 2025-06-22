@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import ast  # local import to avoid polluting global namespace unnecessarily
+import os
 
 def toolace_to_jsonl():
     # Load the toolace.json file
@@ -541,6 +542,50 @@ def cot_to_json():
     with open('cot_modified.json', 'w') as f:
         json.dump(cot_list, f, indent=2)
 
+def combine():
+    # List to store all combined data
+    all_data = []
+    
+    # Read all JSON files from datasets_modified directory
+    datasets_dir = "datasets_modified"
+    if os.path.exists(datasets_dir):
+        for filename in os.listdir(datasets_dir):
+            if filename.endswith('.json'):
+                file_path = os.path.join(datasets_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            all_data.extend(data)
+                        else:
+                            all_data.append(data)
+                    print(f"Loaded {len(data) if isinstance(data, list) else 1} entries from {filename}")
+                except Exception as e:
+                    print(f"Error loading {filename}: {e}")
+    
+    # Load toolllama_G123_dfs_train.json
+    toolllama_file = "toolllama_G123_dfs_train.json"
+    if os.path.exists(toolllama_file):
+        try:
+            with open(toolllama_file, 'r', encoding='utf-8') as f:
+                toolllama_data = json.load(f)
+                if isinstance(toolllama_data, list):
+                    all_data.extend(toolllama_data)
+                else:
+                    all_data.append(toolllama_data)
+            print(f"Loaded {len(toolllama_data) if isinstance(toolllama_data, list) else 1} entries from {toolllama_file}")
+        except Exception as e:
+            print(f"Error loading {toolllama_file}: {e}")
+    else:
+        print(f"Warning: {toolllama_file} not found")
+    
+    # Save combined data to a single JSON file
+    output_file = "combined_dataset.json"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(all_data, f, indent=2, ensure_ascii=False)
+    
+    print(f"\nCombined {len(all_data)} total entries into {output_file}")
+
 if __name__ == "__main__":
     #toolace_to_jsonl()
     #mt_5k_to_json()
@@ -549,4 +594,38 @@ if __name__ == "__main__":
     #glaive_to_json()
     #hammer2_to_json()
     #gorilla_to_json()
-    cot_to_json()
+    #cot_to_json()
+    #combine()
+
+    import random
+    
+    # Load the combined dataset
+    with open('combined_dataset.json', 'r', encoding='utf-8') as f:
+        combined_data = json.load(f)
+    
+    print(f"Total entries in combined dataset: {len(combined_data)}")
+    print("\n" + "="*50)
+    print("10 RANDOM ENTRIES:")
+    print("="*50)
+    
+    # Select and print 10 random entries
+    random_entries = random.sample(combined_data, min(10, len(combined_data)))
+    
+    for i, entry in enumerate(random_entries, 1):
+        print(f"\n--- Entry {i} ---")
+        print(f"ID: {entry.get('id', 'N/A')}")
+        print(f"Conversations: {len(entry.get('conversations', []))} messages")
+        
+        # Print first few messages (truncated for readability)
+        conversations = entry.get('conversations', [])
+        for j, conv in enumerate(conversations[:3]):  # Show first 3 messages
+            from_role = conv.get('from', 'unknown')
+            value = conv.get('value', '')
+            # Truncate long values
+            if len(value) > 100:
+                value = value[:100] + "..."
+            print(f"  {j+1}. {from_role}: {value}")
+        
+        if len(conversations) > 3:
+            print(f"  ... and {len(conversations) - 3} more messages")
+        print()
