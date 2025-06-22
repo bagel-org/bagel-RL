@@ -1,23 +1,23 @@
 {
   "model": {
-    "name": "Qwen/Qwen2.5-3B-Instruct",
+    "name": "Qwen/Qwen2.5-7B-Instruct",
     "trust_remote_code": true,
     "torch_dtype": "float16",
     "device_map": "auto"
   },
   "training": {
     "method": "sft",
-    "num_epochs": 100,
+    "num_epochs": 3,
     "learning_rate": 5e-5,
     "batch_size": 4,
-    "gradient_accumulation_steps": 1,
-    "tokenizer_padding_side": "right",
+    "gradient_accumulation_steps": 4,
+    "tokenizer_padding_side": "left",
     "warmup_steps": 100,
     "max_length": 512,
-    "use_lora": false,
+    "use_lora": true,
     "lora_r": 16,
     "lora_alpha": 32,
-    "lora_dropout": 0.1
+    "lora_dropout": 0.05
   },
   "data": {
     "strategy": "toolbench",
@@ -25,6 +25,11 @@
     "train_split": 0.8
   },
   
+  "tokenizer":{
+    "name":"Qwen/Qwen2.5-7B-Instruct", 
+    "trust_remote_code": true
+  },
+
   "tools": [
     {
       "name": "calculator",
@@ -75,6 +80,7 @@
       }
     }
   ],
+  
   "evaluation": {
     "metrics": ["tool_accuracy", "response_quality", "tool_format_correctness"],
     "eval_steps": 100

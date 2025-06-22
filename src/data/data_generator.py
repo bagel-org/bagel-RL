@@ -10,6 +10,7 @@ from ..tools.executor import ToolExecutor
 import sys
 import requests
 import os
+from transformers import AutoTokenizer
 
 
 logger = logging.getLogger(__name__)
@@ -18,11 +19,13 @@ logger = logging.getLogger(__name__)
 class DataGenerator:
     """Generates training data for tool use from various sources."""
     
-    def __init__(self, data_config: Dict[str, Any], tools_config: List[Dict[str, Any]]):
+    def __init__(self, data_config: Dict[str, Any], tools_config: List[Dict[str, Any]], tokenizer_config: List[Dict[str, Any]]):
         self.data_config = data_config
         self.tools_config = tools_config
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_config["name"], trust_remote_code=tokenizer_config['trust_remote_code'],padding_side='left')
         self.tool_executor = ToolExecutor(tools_config)
         self.strategy = data_config["strategy"]
+
         
     def prepare_datasets(self) -> Tuple[Dataset, Dataset]:
         """Prepare training and evaluation datasets."""
@@ -66,7 +69,24 @@ class DataGenerator:
             return "tool"               # Qwen2.5 chat template recognises 'tool'
         return raw_role                 # system / user / assistant stay as-is
 
-    
+
+    def _process_example_toolbench(self, example):
+        prompt = ""
+        for turn in example["conversations"]:
+            if turn["from"] == "system":
+                prompt += f"<|system|>\n{turn['value']}\n"
+            elif turn["from"] == "user":
+                prompt += f"<|user|>\n{turn['value']}\n"
+            elif turn["from"] == "assistant":
+                prompt += f"<|assistant|>\n{turn['value']}\n"
+            elif turn["from"] == "tool":
+                prompt += f"<|tool|>\n{turn['value']}\n"
+        
+        return self.tokenizer(prompt, truncation=True, max_length=2048)
+        
+        
+       
+        
     def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
         """Get toolbench data."""
         logger.info("Obtaining toolbench data...")
@@ -81,7 +101,11 @@ class DataGenerator:
         
 
         train_dataset = load_dataset("json", data_files = '/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_train.json' )["train"]
+        train_dataset = train_dataset.map(self._process_example_toolbench)
         eval_dataset = load_dataset("json", data_files = '/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_eval.json' )
+        eval_dataset = eval_dataset.map(self._process_example_toolbench)
+
+        
         
         
         # with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_train.json', 'r') as f:

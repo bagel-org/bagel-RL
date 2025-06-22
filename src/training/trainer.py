@@ -81,8 +81,9 @@ class ToolTrainer:
         # tokenizer.add_special_tokens(special_tokens)
         
         # Set pad token if not exists
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
+        # if tokenizer.pad_token is None:
+        #     tokenizer.pad_token = tokenizer.eos_token
+        #     tokenizer.padding_size = "left"
         
         return tokenizer
     
@@ -95,8 +96,6 @@ class ToolTrainer:
             model_config["name"],
             trust_remote_code=model_config.get("trust_remote_code", False),
             torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
-            load_in_4bit = True, 
-            attn_implementation="flash_attention_2",
             device_map=model_config.get("device_map", "auto")
         )
         
@@ -151,7 +150,7 @@ class ToolTrainer:
             save_steps=500,
             save_total_limit=3,
             load_best_model_at_end=True,
-            metric_for_best_model="eval_loss",
+            metric_for_best_model="eval_train_loss",
             greater_is_better=False,
             report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
             dataloader_pin_memory=False,
@@ -162,45 +161,20 @@ class ToolTrainer:
             )
        
 
-        peft_cfg = LoraConfig(
-        r=64, lora_alpha=128, lora_dropout=0.05,
-        bias="none", task_type="CAUSAL_LM",
-        # target_modules=["q_proj","k_proj","v_proj","o_proj",
-        #                 "gate_proj","up_proj","down_proj"]  # fits Qwen block names
-        target_modules = ["q_proj","v_proj"]
-        )
-
-        self.model_fin = get_peft_model(self.model, peft_cfg)
-        
-
-        sft_cfg = SFTConfig(
-        dataset_text_field = "messages",   # TRL uses messages-to-chat-template
-        packing            = True,        # token-pack examples efficiently
-        max_seq_length     = 2048
-        )
         
         
         
         trainer = SFTTrainer(
-            model           = self.model_fin,
+            model           = self.model,
             train_dataset   = self.train_dataset,
             eval_dataset    = self.eval_dataset,
-            peft_config     = peft_cfg,
             args            = training_args,
             processing_class       = self.tokenizer,
             
         )
 
-        # Initialize trainer
-        # trainer = Trainer(
-        #     model=self.model,
-        #     args=training_args,
-        #     train_dataset=tokenized_train,
-        #     eval_dataset=tokenized_eval,
-        #     data_collator=data_collator,
-        #     tokenizer=self.tokenizer,
-        #     #label_names=["labels"]  # Fix the PEFT warning
-        # )
+    
+       
         
         # Train
         trainer.train(resume_from_checkpoint=resume_from_checkpoint)
