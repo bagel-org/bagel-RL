@@ -407,6 +407,99 @@ def hammer2_to_json():
     with open('hammer2_modified.json', 'w') as f:
         json.dump(hammer2_list, f, indent=2)
 
+def gorilla_to_json():
+    import os
+    import json
+    
+    # Get all JSON files in the BFCL directory
+    bfcl_dir = 'BFCL'
+    json_files = [f for f in os.listdir(bfcl_dir) if f.endswith('.json')]
+    
+    # Combine all JSON data
+    gorilla_list = []
+    
+    for json_file in json_files:
+        file_path = os.path.join(bfcl_dir, json_file)
+        try:
+            # First, attempt to load the whole file as standard JSON (either an object or an array).
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+                # If data is a list, extend gorilla_list; else append as single entry
+                if isinstance(data, list):
+                    gorilla_list.extend(data)
+                else:
+                    gorilla_list.append(data)
+
+        except json.JSONDecodeError:
+            # Fallback: treat the file as newline-delimited JSON (one JSON object per line).
+            with open(file_path, 'r') as f:
+                f.seek(0)  # Rewind to the beginning of the file
+                for line_num, line in enumerate(f, start=1):
+                    line = line.strip()
+                    if not line:
+                        continue  # skip empty lines
+                    try:
+                        obj = json.loads(line)
+                        if isinstance(obj, list):
+                            gorilla_list.extend(obj)
+                        else:
+                            gorilla_list.append(obj)
+                    except json.JSONDecodeError as inner_err:
+                        # Warn and skip malformed lines rather than aborting the entire conversion
+                        print(f"Skipping malformed JSON line {line_num} in {json_file}: {inner_err}")
+        except Exception as e:
+            # Catch-all for other IO related errors
+            print(f"Unexpected error processing {json_file}: {e}")
+    
+    # Rename "question" field to "conversations" in all entries
+    for entry in gorilla_list:
+        if "question" in entry:
+            entry["conversations"] = entry.pop("question")
+    
+    # Flatten the double nested conversations list
+    for entry in gorilla_list:
+        if "conversations" in entry and isinstance(entry["conversations"], list):
+            # If conversations is a list of lists, flatten it
+            if entry["conversations"] and isinstance(entry["conversations"][0], list):
+                entry["conversations"] = entry["conversations"][0]
+    
+    # Convert function field to string in all entries
+    for entry in gorilla_list:
+        if "function" in entry and isinstance(entry["function"], list):
+            entry["function"] = json.dumps(entry["function"])
+    
+    # Convert "role" to "from" and "content" to "value" in conversations
+    for entry in gorilla_list:
+        if "conversations" in entry and isinstance(entry["conversations"], list):
+            for conversation in entry["conversations"]:
+                if isinstance(conversation, dict):
+                    if "role" in conversation:
+                        conversation["from"] = conversation.pop("role")
+                    if "content" in conversation:
+                        conversation["value"] = conversation.pop("content")
+    
+    # Convert function field to conversation format and append to conversations
+    for entry in gorilla_list:
+        if "function" in entry:
+            function_conversation = {
+                "from": "function",
+                "value": entry["function"]
+            }
+            if "conversations" in entry:
+                entry["conversations"].append(function_conversation)
+            else:
+                entry["conversations"] = [function_conversation]
+    
+    # Remove "id" and "function" fields from all entries
+    for entry in gorilla_list:
+        entry.pop("id", None)
+        entry.pop("function", None)
+        entry.pop("initial_config", None)
+    
+    # Save combined data to JSON file
+    with open('gorilla_modified.json', 'w') as f:
+        json.dump(gorilla_list, f, indent=2)
 
 if __name__ == "__main__":
     #toolace_to_jsonl()
@@ -414,4 +507,5 @@ if __name__ == "__main__":
     #bitagent_to_json()
     #coalm_to_json()
     #glaive_to_json()
-    hammer2_to_json()
+    #hammer2_to_json()
+    gorilla_to_json()
