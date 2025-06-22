@@ -501,6 +501,46 @@ def gorilla_to_json():
     with open('gorilla_modified.json', 'w') as f:
         json.dump(gorilla_list, f, indent=2)
 
+def cot_to_json():
+    # Read the parquet file
+    df = pd.read_parquet('ayman.parquet')
+    
+    # Convert to list of dictionaries
+    cot_list = df.to_dict('records')
+    
+    for entry in cot_list:
+        entry["conversations"] = []
+
+        entry["conversations"].append({
+            "from": "system",
+            "value": "Given the following functions, please respond with a JSON for a function call with its proper arguments that best answers the given prompt. Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.Do not use variables.\n\n" + entry["tools"]
+        })
+        
+        entry["conversations"].append({
+            "from": "user",
+            "value": entry["query"]
+        })
+
+        entry["conversations"].append({
+            "from": "function",
+            "value": entry["answers"]
+        })
+    
+    # Remove "tools" and "query" fields from all entries
+    for entry in cot_list:
+        entry.pop("tools", None)
+        entry.pop("query", None)
+        entry.pop("answers", None)
+        entry.pop("prompt", None)
+        entry.pop("r1-gen", None)
+        entry.pop("id", None)
+        entry.pop("think", None)
+
+
+    # Save to JSON file
+    with open('cot_modified.json', 'w') as f:
+        json.dump(cot_list, f, indent=2)
+
 if __name__ == "__main__":
     #toolace_to_jsonl()
     #mt_5k_to_json()
@@ -508,4 +548,5 @@ if __name__ == "__main__":
     #coalm_to_json()
     #glaive_to_json()
     #hammer2_to_json()
-    gorilla_to_json()
+    #gorilla_to_json()
+    cot_to_json()
