@@ -92,6 +92,19 @@ def mt_5k_to_json():
             entry.clear()
             entry.update(reordered_entry)
     
+    for entry in mt_5k_data:
+        if "id" in entry and "conversations" in entry:
+            entry["conversations"].insert(0, {
+                "from": "system",
+                "value": entry["id"]
+            })
+    
+    # Remove "id" field from all entries
+    for entry in mt_5k_data:
+        if "id" in entry:
+            del entry["id"]
+    
+    
     # Save the modified data back to a new JSON file
     with open('mt_5k_modified.json', 'w') as output_file:
         json.dump(mt_5k_data, output_file, indent=2)
@@ -351,7 +364,7 @@ def glaive_to_json():
 
 if __name__ == "__main__":
     #toolace_to_jsonl()
-    #mt_5k_to_json()
+    mt_5k_to_json()
     #bitagent_to_json()
-    coalm_to_json()
+    #coalm_to_json()
     #glaive_to_json()
