@@ -362,9 +362,56 @@ def glaive_to_json():
     with open('glaive_modified.json', 'w') as f:
         json.dump(glaive_list, f, indent=2)
 
+def hammer2_to_json():
+    # Read the multi-turn.json file
+    with open('multi-turn.json', 'r') as f:
+        multi_turn_data = json.load(f)
+
+    # read the single-turn.json file
+    with open('single-turn.json', 'r') as f:
+        single_turn_data = json.load(f)
+
+    # combine the two datasets
+    hammer2_list = multi_turn_data + single_turn_data
+
+    
+    # Change "messages" field to "conversations" in all entries
+    for entry in hammer2_list:
+        if "messages" in entry:
+            entry["conversations"] = entry.pop("messages")
+            
+    # Change "role" to "from" and "content" to "value" in conversations
+    for entry in hammer2_list:
+        if "conversations" in entry:
+            for conversation in entry["conversations"]:
+                if "role" in conversation:
+                    conversation["from"] = conversation.pop("role")
+                if "content" in conversation:
+                    conversation["value"] = conversation.pop("content")
+
+    # Convert non-string "value" fields to strings
+    for entry in hammer2_list:
+        if "conversations" in entry:
+            for conversation in entry["conversations"]:
+                if "value" in conversation and not isinstance(conversation["value"], str):
+                    conversation["value"] = json.dumps(conversation["value"])
+    
+    # Remove "id" and "tools" fields from all entries
+    for entry in hammer2_list:
+        if "id" in entry:
+            del entry["id"]
+        if "tools" in entry:
+            del entry["tools"]
+    
+    # Save to JSON file
+    with open('hammer2_modified.json', 'w') as f:
+        json.dump(hammer2_list, f, indent=2)
+
+
 if __name__ == "__main__":
     #toolace_to_jsonl()
-    mt_5k_to_json()
+    #mt_5k_to_json()
     #bitagent_to_json()
     #coalm_to_json()
     #glaive_to_json()
+    hammer2_to_json()
