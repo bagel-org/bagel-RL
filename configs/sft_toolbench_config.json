@@ -13,11 +13,12 @@
     "gradient_accumulation_steps": 4,
     "tokenizer_padding_side": "left",
     "warmup_steps": 100,
-    "max_length": 512,
+    "max_length": 4096,
     "use_lora": true,
     "lora_r": 16,
     "lora_alpha": 32,
     "lora_dropout": 0.05
+   
   },
   "data": {
     "strategy": "toolbench",

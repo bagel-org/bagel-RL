@@ -157,7 +157,7 @@ class ToolTrainer:
             fp16=True, #turn it to true if using gpu
             max_grad_norm=1.0,
             optim = "adamw_torch" ,
-            max_seq_length=4096,
+            max_seq_length=self.config["training"].get("max_length",4096),
             label_names = ["labels"]
             )
        
