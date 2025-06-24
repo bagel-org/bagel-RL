@@ -134,7 +134,7 @@ class ToolTrainer:
         
         
         # Training arguments
-        training_args = TrainingArguments(
+        training_args = SFTConfig(
             output_dir=str(self.output_dir),
             overwrite_output_dir=True,
             num_train_epochs=self.config["training"].get("num_epochs", 3),
@@ -150,13 +150,14 @@ class ToolTrainer:
             save_steps=500,
             save_total_limit=3,
             load_best_model_at_end=True,
-            metric_for_best_model="eval_train_loss",
+            metric_for_best_model="eval_loss",
             greater_is_better=False,
             report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
             dataloader_pin_memory=False,
             fp16=True, #turn it to true if using gpu
             max_grad_norm=1.0,
             optim = "adamw_torch" ,
+            max_seq_length=4096,
             label_names = ["labels"]
             )
        

@@ -11,7 +11,10 @@ import sys
 import requests
 import os
 from transformers import AutoTokenizer
-
+import torch
+from pathlib import Path
+from tqdm import tqdm
+from datasets import load_from_disk
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,9 @@ class DataGenerator:
     def __init__(self, data_config: Dict[str, Any], tools_config: List[Dict[str, Any]], tokenizer_config: List[Dict[str, Any]]):
         self.data_config = data_config
         self.tools_config = tools_config
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_config["name"], trust_remote_code=tokenizer_config['trust_remote_code'],padding_side='left')
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_config["name"], trust_remote_code=tokenizer_config['trust_remote_code'])
+        self.eos_id = self.tokenizer.eos_token_id
+        self.assistant_start = self.tokenizer.convert_tokens_to_ids("<|im_start|>")
         self.tool_executor = ToolExecutor(tools_config)
         self.strategy = data_config["strategy"]
 
@@ -89,21 +94,80 @@ class DataGenerator:
         
     def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
         """Get toolbench data."""
-        logger.info("Obtaining toolbench data...")
-        synthetic_data = self._generate_synthetic_toolbench_data()
+        # logger.info("Obtaining toolbench data...")
+        # synthetic_data = self._generate_synthetic_toolbench_data()
 
-        #download the data from google drive link 
-        destination_dir = './data/toolbench/'
-        if not os.path.exists(destination_dir):
-            folder_url = 'https://drive.google.com/drive/folders/1TysbSWYpP8EioFu9xPJtpbJZMLLmwAmL'
-            destination_dir = './data/toolbench/'
-            self._download_from_google_drive(folder_url, destination_dir)
+        # #download the data from google drive link 
+        # destination_dir = './data/toolbench/'
+        # if not os.path.exists(destination_dir):
+        #     folder_url = 'https://drive.google.com/drive/folders/1TysbSWYpP8EioFu9xPJtpbJZMLLmwAmL'
+        #     destination_dir = './data/toolbench/'
+        #     self._download_from_google_drive(folder_url, destination_dir)
+
+        def conversation_to_example(conv):
+            """
+            conv: list of {'from': str, 'value': str}
+            returns dict(input_ids, labels, attention_mask)
+            """
+            # map ToolBench 'from' tags to Qwen roles
+            role_map = {
+                "system": "system",
+                "user": "user",
+                "assistant": "assistant",
+                "function": "tool",        # treated as 'tool' role in Qwen3 template
+                "observation": "tool"      # some older dumps use 'observation'
+            }
+
+            messages = [
+                {"role": role_map.get(m["from"], "user"), "content": m["value"]}
+                for m in conv
+            ]
+
+            # add_generation_prompt=True inserts the <assistant> header at end
+            chat_str = self.tokenizer.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                tokenize=False,
+                enable_thinking=True   # lets the model emit <think> blocks if desired
+            )
+
+            ids = self.tokenizer(chat_str, return_tensors="pt", add_special_tokens=False).input_ids[0]
+            # mask everything up to the first assistant tag
+            first_assist = (ids == self.assistant_start).nonzero(as_tuple=True)[0][0]
+            labels = ids.clone()
+            labels[: first_assist + 1] = -100   # +1 keeps the newline after header masked
+
+            return dict(input_ids=ids, labels=labels, attention_mask=torch.ones_like(ids))
         
 
-        train_dataset = load_dataset("json", data_files = '/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_train.json' )["train"]
-        train_dataset = train_dataset.map(self._process_example_toolbench)
-        eval_dataset = load_dataset("json", data_files = '/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_eval.json' )
-        eval_dataset = eval_dataset.map(self._process_example_toolbench)
+        if not os.path.exists('./data/train_test_dataset/'):
+            ##load the json data
+            raw_path = Path('./data/combined_dataset.json')
+            data = json.loads(raw_path.read_text())
+
+            data = data[:5000]
+
+            records = [conversation_to_example(sample["conversations"]) for sample in tqdm(data)]
+
+            ds = Dataset.from_list(records)
+
+            train_test = ds.train_test_split(test_size=0.002, seed=42)  # ~1 % eval
+
+            train_test.save_to_disk('./data/train_test_dataset/')
+
+            
+
+            train_dataset = train_test['train']
+            eval_dataset = train_test['test']
+        
+        else:
+
+            train_dataset = load_from_disk('./data/train_test_dataset/train')
+            eval_dataset = load_from_disk('./data/train_test_dataset/test/')
+
+          
+        
+        
 
         
         
@@ -155,6 +219,7 @@ class DataGenerator:
 
         
         # test_dataset = Dataset.from_list(rows_eval)
+        
         
         return train_dataset, eval_dataset
     

@@ -1,13 +1,13 @@
 {
   "model": {
-    "name": "Qwen/Qwen2.5-7B-Instruct",
+    "name": "Qwen/Qwen3-0.6B",
     "trust_remote_code": true,
     "torch_dtype": "float16",
     "device_map": "auto"
   },
   "training": {
     "method": "sft",
-    "num_epochs": 3,
+    "num_epochs": 1,
     "learning_rate": 5e-5,
     "batch_size": 4,
     "gradient_accumulation_steps": 4,
@@ -26,7 +26,7 @@
   },
   
   "tokenizer":{
-    "name":"Qwen/Qwen2.5-7B-Instruct", 
+    "name":"Qwen/Qwen3-0.6B", 
     "trust_remote_code": true
   },
 
