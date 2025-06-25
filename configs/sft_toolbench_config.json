@@ -1,6 +1,6 @@
 {
   "model": {
-    "name": "Qwen/Qwen3-0.6B",
+    "name": "Qwen/Qwen3-4B",
     "trust_remote_code": true,
     "torch_dtype": "float16",
     "device_map": "auto"
@@ -9,13 +9,13 @@
     "method": "sft",
     "num_epochs": 1,
     "learning_rate": 5e-5,
-    "batch_size": 4,
-    "gradient_accumulation_steps": 4,
+    "batch_size": 2,
+    "gradient_accumulation_steps": 8,
     "tokenizer_padding_side": "left",
     "warmup_steps": 100,
     "max_length": 4096,
     "use_lora": true,
-    "lora_r": 16,
+    "lora_r": 8,
     "lora_alpha": 32,
     "lora_dropout": 0.05
    
@@ -27,7 +27,7 @@
   },
   
   "tokenizer":{
-    "name":"Qwen/Qwen3-0.6B", 
+    "name":"Qwen/Qwen3-4B", 
     "trust_remote_code": true
   },
 

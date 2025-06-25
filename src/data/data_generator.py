@@ -145,7 +145,7 @@ class DataGenerator:
             raw_path = Path('./data/combined_dataset.json')
             data = json.loads(raw_path.read_text())
 
-            data = data[:5000]
+            data = data[:15000]
 
             records = [conversation_to_example(sample["conversations"]) for sample in tqdm(data)]
 
