@@ -10,12 +10,12 @@
     "num_epochs": 1,
     "learning_rate": 5e-5,
     "batch_size": 2,
-    "gradient_accumulation_steps": 8,
+    "gradient_accumulation_steps": 4,
     "tokenizer_padding_side": "left",
     "warmup_steps": 100,
     "max_length": 4096,
     "use_lora": true,
-    "lora_r": 8,
+    "lora_r": 4,
     "lora_alpha": 32,
     "lora_dropout": 0.05
    
