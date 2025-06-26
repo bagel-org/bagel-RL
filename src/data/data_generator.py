@@ -26,8 +26,8 @@ class DataGenerator:
         self.data_config = data_config
         self.tools_config = tools_config
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_config["name"], trust_remote_code=tokenizer_config['trust_remote_code'])
-        self.eos_id = self.tokenizer.eos_token_id
-        self.assistant_start = self.tokenizer.convert_tokens_to_ids("<|im_start|>")
+        
+        #self.assistant_start = self.tokenizer.convert_tokens_to_ids("<|im_start|>")
         self.tool_executor = ToolExecutor(tools_config)
         self.strategy = data_config["strategy"]
 
@@ -92,7 +92,7 @@ class DataGenerator:
         
        
         
-    def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
+    def _prepare_toolbench_data_old(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
         """Get toolbench data."""
         # logger.info("Obtaining toolbench data...")
         # synthetic_data = self._generate_synthetic_toolbench_data()
@@ -128,6 +128,7 @@ class DataGenerator:
                 messages,
                 add_generation_prompt=True,
                 tokenize=False,
+                tool=TOOLS,
                 enable_thinking=True   # lets the model emit <think> blocks if desired
             )
 
@@ -166,62 +167,81 @@ class DataGenerator:
             eval_dataset = load_from_disk('./data/train_test_dataset/test/')
 
           
-        
-        
 
-        
-        
-        
-        # with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_train.json', 'r') as f:
-        #     tool_data_train = json.load(f)
-        
-        # with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_eval.json', 'r') as f:
-        #     tool_data_eval = json.load(f)
-
-        # rows = []
-        # print("Preparing Training Dataset")
-        # for sample in tool_data_train:
-        #     convo = []
-        #     for block in sample["conversations"]:
-        #         convo.append({
-        #             "role":    self._role_map(block["from"]),
-        #             "content": block["value"].strip()
-        #         })
-
-        #         # emit an example whenever the assistant has just spoken
-        #         if emit_partial and block["from"] == "assistant":
-        #             rows.append({"messages": convo.copy()})
-
-        #     # also keep the whole trajectory once (useful for full-context SFT)
-        #     if not emit_partial:
-        #         rows.append({"messages": convo})
-        
-        # train_dataset = Dataset.from_list(rows)
-
-        # print("Preparing Evaluation Dataset")
-
-        # rows_eval = []
-        # for sample in tool_data_eval:
-        #     convo = []
-        #     for block in sample["conversations"]:
-        #         convo.append({
-        #             "role":    self._role_map(block["from"]),
-        #             "content": block["value"].strip()
-        #         })
-
-        #         # emit an example whenever the assistant has just spoken
-        #         if emit_partial and block["from"] == "assistant":
-        #             rows_eval.append({"messages": convo.copy()})
-
-        #     # also keep the whole trajectory once (useful for full-context SFT)
-        #     if not emit_partial:
-        #         rows_eval.append({"messages": convo})
-
-        
-        # test_dataset = Dataset.from_list(rows_eval)
-        
         
         return train_dataset, eval_dataset
+    
+    
+    def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
+        """Get toolbench data."""
+        logger.info("Obtaining toolbench data...")
+
+        assistant_id = self.tokenizer.convert_tokens_to_ids("<|assistant|>")
+        # synthetic_data = self._generate_synthetic_toolbench_data()
+
+        #download the data from google drive link 
+        destination_dir = './data/toolbench/'
+        if not os.path.exists(destination_dir):
+            folder_url = 'https://drive.google.com/drive/folders/1TysbSWYpP8EioFu9xPJtpbJZMLLmwAmL'
+            destination_dir = './data/toolbench/'
+            self._download_from_google_drive(folder_url, destination_dir)
+        
+        #loading the toolbench data
+        data = load_dataset("json", data_files="./data/toolbench/data/data/toolllama_G123_dfs_train.json")["train"]
+        
+        data = data.shuffle(seed=42).select(range(12000))
+     
+        def to_messages(conv):
+             # Map any role names that can appear in ToolBench/Qwen
+            role_map = {
+                "system": "system",
+                "user": "user",
+                "assistant": "assistant",
+                "tool": "tool",           # tool_response in some repos
+                "function": "tool",       # treat function output the same as tool
+                "tool_response": "tool",  # safety net for other dumps
+                "tool_call": "assistant", # if your dump keeps the call separate
+            }
+
+            unknown = {m["from"] for m in conv} - role_map.keys()
+            if unknown:                       # fail fast if you meet something new
+                raise ValueError(f"Unknown role(s): {unknown}")
+
+            return [
+                {"role": role_map[m["from"]], "content": m["value"]}
+                for m in conv
+            ]
+        
+        def tokenize(sample):
+            msgs = to_messages(sample["conversations"])
+            chat_text = self.tokenizer.apply_chat_template(msgs, tokenize=False,
+                                        add_generation_prompt=False)  # Qwen-3 Jinja template:contentReference[oaicite:1]{index=1}
+            
+            
+            ids = self.tokenizer(chat_text, return_tensors="pt").input_ids[0]
+            labels = ids.clone()
+
+            # *** non-assistant masking ***
+            ptr = 0
+            for msg in msgs:
+                n = len(self.tokenizer(msg["content"]).input_ids) + 1  # +EOS
+                if msg["role"] != "assistant":
+                    labels[ptr:ptr+n] = -100        # ignore in loss
+                ptr += n
+            sample["input_ids"], sample["labels"] = ids, labels
+            return sample
+
+        tokenised = data.map(tokenize, remove_columns=data.column_names)
+        tokenised = tokenised.shuffle(seed=42).train_test_split(test_size=0.01)
+
+        dataset_train = tokenised["train"]
+        dataset_eval = tokenised['test']
+
+        return dataset_train, dataset_eval
+
+
+        
+    
     
     def _prepare_teacher_mode_data(self) -> Tuple[Dataset, Dataset]:
         """Generate data using teacher mode (Toolformer-style)."""
