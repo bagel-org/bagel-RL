@@ -62,30 +62,48 @@ class ToolTrainer:
     
     def _load_tokenizer(self) -> AutoTokenizer:
         """Load tokenizer."""
-        model_name = self.config["model"]["name"]
+
+        if "qwen3" in model_name.lower() and "toolbench" in config["data"]["strategy"]
+            model_name = self.config["model"]["name"]
+            
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                trust_remote_code=self.config["model"].get("trust_remote_code", False),
+                use_fast = True
+            )
+
+            return tokenizer
         
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
-            padding_side=self.config["training"].get("tokenizer_padding_side",False),
-            trust_remote_code=self.config["model"].get("trust_remote_code", False)
-        )
         
-        # # Add special tokens for tool calls
-        # special_tokens = {
-        #     "additional_special_tokens": [
-        #         "[TOOL_CALL]", "[/TOOL_CALL]", 
-        #         "[RESULT]", "[/RESULT]"
-        #     ]
-        # }
+        else:
+
+
+            model_name = self.config["model"]["name"]
+            
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                trust_remote_code=self.config["model"].get("trust_remote_code", False),
+                use_fast = True
+            )
+
         
-        # tokenizer.add_special_tokens(special_tokens)
         
-        # Set pad token if not exists
-        # if tokenizer.pad_token is None:
-        #     tokenizer.pad_token = tokenizer.eos_token
-        #     tokenizer.padding_size = "left"
+            # Add special tokens for tool calls
+            special_tokens = {
+                "additional_special_tokens": [
+                    "[TOOL_CALL]", "[/TOOL_CALL]", 
+                    "[RESULT]", "[/RESULT]"
+                ]
+            }
+            
+            tokenizer.add_special_tokens(special_tokens)
+            
+            Set pad token if not exists
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+                tokenizer.padding_size = "left"
         
-        return tokenizer
+            return tokenizer
     
     def _load_model(self) -> AutoModelForCausalLM:
         """Load and prepare model."""
@@ -96,7 +114,8 @@ class ToolTrainer:
             model_config["name"],
             trust_remote_code=model_config.get("trust_remote_code", False),
             torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
-            device_map=model_config.get("device_map", "auto")
+            device_map=model_config.get("device_map", "auto"),
+            
         )
         
         # Resize embeddings for new tokens
