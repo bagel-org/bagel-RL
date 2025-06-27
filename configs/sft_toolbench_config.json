@@ -1,6 +1,6 @@
 {
   "model": {
-    "name": "Qwen/Qwen3-4B",
+    "name": "Qwen/Qwen3-0.6B",
     "trust_remote_code": true,
     "torch_dtype": "float16",
     "device_map": "auto"
@@ -9,86 +9,32 @@
     "method": "sft",
     "num_epochs": 1,
     "learning_rate": 5e-5,
-    "batch_size": 2,
-    "gradient_accumulation_steps": 4,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 8,
     "tokenizer_padding_side": "left",
     "warmup_steps": 100,
     "max_length": 4096,
     "use_lora": true,
-    "lora_r": 4,
+    "lora_r": 8,
     "lora_alpha": 32,
     "lora_dropout": 0.05
    
   },
   "data": {
     "strategy": "toolbench",
-    "max_samples": 1000,
+    "max_samples": 70000,
     "train_split": 0.8
   },
   
   "tokenizer":{
-    "name":"Qwen/Qwen3-4B", 
+    "name":"Qwen/Qwen3-0.6B", 
     "trust_remote_code": true
   },
 
-  "tools": [
-    {
-      "name": "calculator",
-      "description": "Perform mathematical calculations",
-      "type": "function",
-      "function": "calculator",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "expression": {
-            "type": "string",
-            "description": "Mathematical expression to evaluate"
-          }
-        },
-        "required": ["expression"]
-      }
-    },
-    {
-      "name": "weather",
-      "description": "Get weather information for a location",
-      "type": "function",
-      "function": "weather",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "location": {
-            "type": "string",
-            "description": "Location to get weather for"
-          }
-        },
-        "required": ["location"]
-      }
-    },
-    {
-      "name": "search",
-      "description": "Search for information on the internet",
-      "type": "function",
-      "function": "search",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "Search query"
-          }
-        },
-        "required": ["query"]
-      }
-    }
-  ],
+  "tools":
+  {
+    
+  }
+
   
-  "evaluation": {
-    "metrics": ["tool_accuracy", "response_quality", "tool_format_correctness"],
-    "eval_steps": 100
-  },
-  "tensorboard": {
-    "enabled": true,
-    "log_dir": "outputs/runs"
-  },
-  "seed": 42
 }
