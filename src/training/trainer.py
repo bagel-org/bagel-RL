@@ -18,6 +18,8 @@ from peft import LoraConfig, get_peft_model, TaskType
 from trl import DPOTrainer, SFTTrainer
 from trl import DPOConfig, SFTConfig
 from torch.utils.tensorboard import SummaryWriter
+from transformers import BitsAndBytesConfig
+from peft import prepare_model_for_kbit_training
 
 from ..tools.executor import ToolExecutor
 
@@ -63,8 +65,10 @@ class ToolTrainer:
     def _load_tokenizer(self) -> AutoTokenizer:
         """Load tokenizer."""
 
-        if "qwen3" in model_name.lower() and "toolbench" in config["data"]["strategy"]
-            model_name = self.config["model"]["name"]
+        model_name = self.config["model"]["name"]
+
+        if "qwen3" in model_name.lower() and "toolbench" in self.config["data"]["strategy"]:
+            
             
             tokenizer = AutoTokenizer.from_pretrained(
                 model_name,
@@ -98,7 +102,7 @@ class ToolTrainer:
             
             tokenizer.add_special_tokens(special_tokens)
             
-            Set pad token if not exists
+            #Set pad token if not exists
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
                 tokenizer.padding_size = "left"
@@ -108,6 +112,14 @@ class ToolTrainer:
     def _load_model(self) -> AutoModelForCausalLM:
         """Load and prepare model."""
         model_config = self.config["model"]
+
+        #bits and bytes configuration
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True, 
+            bnb_4bit_compute_dtype="bfloat16"
+        )
         
         # Load base model
         model = AutoModelForCausalLM.from_pretrained(
@@ -115,9 +127,12 @@ class ToolTrainer:
             trust_remote_code=model_config.get("trust_remote_code", False),
             torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
             device_map=model_config.get("device_map", "auto"),
+            quantization_config=bnb_config
             
         )
         
+
+        model = prepare_model_for_kbit_training(model)
         # Resize embeddings for new tokens
         #model.resize_token_embeddings(len(self.tokenizer))
         
