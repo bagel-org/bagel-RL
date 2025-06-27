@@ -12,7 +12,9 @@ class ConfigManager:
     def __init__(self, config_path: str):
         self.config_path = Path(config_path)
         self.config = self._load_config()
-        self._validate_config()
+        # do not run the configuration validation for toolbench
+        if not self.config["data"]["strategy"].lower()=="toolbench":
+            self._validate_config()
     
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON file."""
