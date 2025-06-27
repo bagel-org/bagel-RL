@@ -189,7 +189,7 @@ class DataGenerator:
         #loading the toolbench data
         data = load_dataset("json", data_files="./data/toolbench/data/data/toolllama_G123_dfs_train.json")["train"]
         
-        data = data.shuffle(seed=42).select(range(12000))
+        data = data.shuffle(seed=42).select(range(self.data_config["max_samples"]))
      
         def to_messages(conv):
              # Map any role names that can appear in ToolBench/Qwen
