@@ -28,12 +28,21 @@ python train.py --config configs/sft_toolbench_config.json --outdir outputs/tool
 python train.py --config configs/dpo_config.json --outdir outputs/dpo_results
 ```
 
-3. **Evaluate Trained Model**:
+3. **Merging LORA Adapters**
+
+If you are using lora adapters to finetune the model, you can merge the lora adapters once your training finishes, using the followig 
+
+```bash
+python save_merge_model.py --base_model BASE-MODEL-NAME --adapter_path PATH/TO/SAVED/ADAPTER --output_dir PATH/TO/MERGED/MODEL
+```
+
+
+4. **Evaluate Trained Model**:
 ```bash
 python evaluate.py --model-path outputs/dpo_results --config configs/dpo_config.json
 ```
 
-4. **Interactive Examples**:
+5. **Interactive Examples**:
 ```bash
 python examples/run_examples.py
 ```
@@ -67,7 +76,7 @@ The framework uses JSON configuration files to define:
 ```json
 {
   "model": {
-    "name": "microsoft/DialoGPT-medium",
+    "name": "Qwen/Qwen3-0.6B",
     "trust_remote_code": false,
     "torch_dtype": "float16",
     "device_map": "auto"
@@ -89,6 +98,8 @@ The framework uses JSON configuration files to define:
 ```
 
 ### Tool Definitions
+If you want to train your model on custom tools with sythetic data generated for custom tools, you can 
+define the tools as well as the dataset.
 ```json
 {
   "tools": [
