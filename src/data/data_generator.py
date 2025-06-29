@@ -35,12 +35,12 @@ class DataGenerator:
             return self._prepare_real_toolbench_data()
         elif self.strategy == "toolbench" and self.generation_type.lower()=='synthetic':
             return self._prepare_synthetic_toolbench_data()
-        elif self.strategy == "teacher_mode":
+        elif self.strategy == "teacher_mode" and self.generation_type.lower()=='synthetic':
             return self._prepare_teacher_mode_data()
-        elif self.strategy == "manual_templates":
+        elif self.strategy == "manual_templates" and self.generation_type.lower()=='synthetic':
             return self._prepare_manual_template_data()
         else:
-            raise ValueError(f"Unknown data strategy: {self.strategy}")
+            raise ValueError(f"Unknown data strategy: {self.strategy}. Data generation strategy {self.generation_type} is not implemented for {self.strategy} ")
     
 
     def _download_from_google_drive(self, folder_url, destination_dir):
