@@ -7,14 +7,10 @@ from typing import Dict, Any, List, Tuple, Optional
 from datasets import Dataset, load_dataset
 import pandas as pd
 from ..tools.executor import ToolExecutor
-import sys
-import requests
 import os
 from transformers import AutoTokenizer
-import torch
-from pathlib import Path
-from tqdm import tqdm
-from datasets import load_from_disk
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +23,18 @@ class DataGenerator:
         self.tools_config = tools_config
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_config["name"], trust_remote_code=tokenizer_config['trust_remote_code'])
         
-        #self.assistant_start = self.tokenizer.convert_tokens_to_ids("<|im_start|>")
+       
         self.tool_executor = ToolExecutor(tools_config)
         self.strategy = data_config["strategy"]
+        self.generation_type = data_config["generation_type"]
 
         
     def prepare_datasets(self) -> Tuple[Dataset, Dataset]:
         """Prepare training and evaluation datasets."""
-        if self.strategy == "toolbench":
-            return self._prepare_toolbench_data()
+        if self.strategy == "toolbench" and self.generation_type.lower()=='real':
+            return self._prepare_real_toolbench_data()
+        elif self.strategy == "toolbench" and self.generation_type.lower()=='synthetic':
+            return self._prepare_synthetic_toolbench_data()
         elif self.strategy == "teacher_mode":
             return self._prepare_teacher_mode_data()
         elif self.strategy == "manual_templates":
@@ -68,111 +67,24 @@ class DataGenerator:
 
 
 
-    def _role_map(self,raw_role: str) -> str:
-        """Convert ToolBench role tags to ChatML-compatible ones."""
-        if raw_role == "function":      # ToolBench writes tool output with this tag
-            return "tool"               # Qwen2.5 chat template recognises 'tool'
-        return raw_role                 # system / user / assistant stay as-is
-
-
-    def _process_example_toolbench(self, example):
-        prompt = ""
-        for turn in example["conversations"]:
-            if turn["from"] == "system":
-                prompt += f"<|system|>\n{turn['value']}\n"
-            elif turn["from"] == "user":
-                prompt += f"<|user|>\n{turn['value']}\n"
-            elif turn["from"] == "assistant":
-                prompt += f"<|assistant|>\n{turn['value']}\n"
-            elif turn["from"] == "tool":
-                prompt += f"<|tool|>\n{turn['value']}\n"
-        
-        return self.tokenizer(prompt, truncation=True, max_length=2048)
         
         
-       
-        
-    def _prepare_toolbench_data_old(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
-        """Get toolbench data."""
-        # logger.info("Obtaining toolbench data...")
-        # synthetic_data = self._generate_synthetic_toolbench_data()
+    def _prepare_synthetic_toolbench_data(self)->Tuple[Dataset, Dataset]:
 
-        # #download the data from google drive link 
-        # destination_dir = './data/toolbench/'
-        # if not os.path.exists(destination_dir):
-        #     folder_url = 'https://drive.google.com/drive/folders/1TysbSWYpP8EioFu9xPJtpbJZMLLmwAmL'
-        #     destination_dir = './data/toolbench/'
-        #     self._download_from_google_drive(folder_url, destination_dir)
+        "Get the synthetic tool bench data"
 
-        def conversation_to_example(conv):
-            """
-            conv: list of {'from': str, 'value': str}
-            returns dict(input_ids, labels, attention_mask)
-            """
-            # map ToolBench 'from' tags to Qwen roles
-            role_map = {
-                "system": "system",
-                "user": "user",
-                "assistant": "assistant",
-                "function": "tool",        # treated as 'tool' role in Qwen3 template
-                "observation": "tool"      # some older dumps use 'observation'
-            }
+        logger.info("Generating synthetic tool bench data...")
 
-            messages = [
-                {"role": role_map.get(m["from"], "user"), "content": m["value"]}
-                for m in conv
-            ]
+        synthetic_data = self._generate_synthetic_toolbench_data()
 
-            # add_generation_prompt=True inserts the <assistant> header at end
-            chat_str = self.tokenizer.apply_chat_template(
-                messages,
-                add_generation_prompt=True,
-                tokenize=False,
-                tool=TOOLS,
-                enable_thinking=True   # lets the model emit <think> blocks if desired
-            )
+        return self._split_dataset(synthetic_data)
 
-            ids = self.tokenizer(chat_str, return_tensors="pt", add_special_tokens=False).input_ids[0]
-            # mask everything up to the first assistant tag
-            first_assist = (ids == self.assistant_start).nonzero(as_tuple=True)[0][0]
-            labels = ids.clone()
-            labels[: first_assist + 1] = -100   # +1 keeps the newline after header masked
 
-            return dict(input_ids=ids, labels=labels, attention_mask=torch.ones_like(ids))
-        
 
-        if not os.path.exists('./data/train_test_dataset/'):
-            ##load the json data
-            raw_path = Path('./data/combined_dataset.json')
-            data = json.loads(raw_path.read_text())
 
-         
 
-            records = [conversation_to_example(sample["conversations"]) for sample in tqdm(data)]
-
-            ds = Dataset.from_list(records)
-
-            train_test = ds.train_test_split(test_size=0.002, seed=42)  # ~1 % eval
-
-            train_test.save_to_disk('./data/train_test_dataset/')
-
-            
-
-            train_dataset = train_test['train']
-            eval_dataset = train_test['test']
-        
-        else:
-
-            train_dataset = load_from_disk('./data/train_test_dataset/train')
-            eval_dataset = load_from_disk('./data/train_test_dataset/test/')
-
-          
-
-        
-        return train_dataset, eval_dataset
     
-    
-    def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
+    def _prepare_real_toolbench_data(self) -> Tuple[Dataset, Dataset]:
         """Get toolbench data."""
         logger.info("Obtaining toolbench data...")
 
@@ -240,7 +152,6 @@ class DataGenerator:
         return dataset_train, dataset_eval
 
 
-        
     
     
     def _prepare_teacher_mode_data(self) -> Tuple[Dataset, Dataset]:
