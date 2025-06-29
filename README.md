@@ -5,7 +5,7 @@ A minimal, reproducible framework for training open-source LLMs to invoke extern
 ## Features
 
 - **Multiple Data Sources**: ToolBench integration, teacher mode (Toolformer-style), and manual templating
-- **Flexible Training**: Reinforcement learning with PPO, DPO, and supervised fine-tuning
+- **Flexible Training**: Reinforcement learning with DPO, and supervised fine-tuning
 - **Configuration-Driven**: JSON-based tool definitions and training recipes
 - **Reproducible**: Fixed seeds, logging, and evaluation metrics
 - **Extensible**: Easy to add new tools and training methods
@@ -22,15 +22,15 @@ source venv/bin/activate
 2. **Run Basic Training**:
 ```bash
 # Supervised fine-tuning with manual templates
-python train.py --config configs/sft_calculator_config.json --outdir outputs/calculator_config
+python train.py --config configs/sft_toolbench_config.json --outdir outputs/toolbench_results
 
 # DPO training with teacher mode
-python train.py --config configs/dpo_calculator_config.json --outdir outputs/calculator_config
+python train.py --config configs/dpo_config.json --outdir outputs/dpo_results
 ```
 
 3. **Evaluate Trained Model**:
 ```bash
-python evaluate.py --model-path outputs/calculator_config --config configs/calculator_config.json
+python evaluate.py --model-path outputs/dpo_results --config configs/dpo_config.json
 ```
 
 4. **Interactive Examples**:
@@ -42,8 +42,8 @@ python examples/run_examples.py
 
 ```
 ├── configs/           # Configuration files
-│   ├── calculator_config.json    # SFT example
-│   └── ppo_config.json          # PPO example
+│   ├── sft_toolbench_config.json    # SFT example with real toolbench data
+│   └── dpo_config.json          # DPO example
 ├── src/              # Source code
 │   ├── data/         # Data generation and loading
 │   ├── models/       # Model definitions
@@ -115,11 +115,11 @@ The framework uses JSON configuration files to define:
 
 1. **Supervised Fine-tuning (SFT)**: Standard next-token prediction on tool-augmented conversations
 2. **DPO**: Direct Preference Optimization using preference pairs
-3. **Teacher Mode**: Self-supervised data generation (Toolformer-style)
+3. **Teacher Mode**: Self-supervised data generation (Toolformer-style) with synthetic data
 
 ## Data Generation Strategies
 
-1. **ToolBench**: Use existing ToolBench datasets (with fallback to synthetic data)
+1. **ToolBench**: Use both real and synthetic tool bench datasets
 2. **Teacher Mode**: LLM generates its own tool-augmented examples
 3. **Manual Templates**: Bootstrap from canonical examples with paraphrasing
 
@@ -137,23 +137,54 @@ You can easily add custom tools by extending the `ToolExecutor` class.
 
 ### Example 1: Calculator with SFT
 ```bash
-python train.py --config configs/calculator_config.json --output-dir outputs/calculator-sft
+python train.py --config configs/sft_toolbench_config.json --output-dir outputs/sft_toolbench
 ```
 
 
 ## Evaluation
 
-The framework includes comprehensive evaluation metrics:
+There are two evaluation criterion for the framework. 
+1. Berkeley Function Calling Leaderboard evaluation
 
-- **Tool Accuracy**: Correct tool selection
-- **Format Correctness**: Proper tool call formatting
-- **Execution Success**: Successful tool execution
-- **Response Quality**: Overall response quality
+2. Other comprehensive evaluation metrics:
 
-Run evaluation:
+  - **Tool Accuracy**: Correct tool selection
+  - **Format Correctness**: Proper tool call formatting
+  - **Execution Success**: Successful tool execution
+  - **Response Quality**: Overall response quality
+
+
+1. To run the evaluation of a trained model on Berkeley Function Calling Leaderboard (BFCL) use the following instruction. 
+
 ```bash
-python evaluate.py --model-path outputs/calculator-sft --config configs/calculator_config.json
+# In your shell environment
+export BFCL_PROJECT_ROOT=/path/to/your/desired/project/directory
 ```
+
+
+Run evaluation on BFCL using finetuned `Qwen3-0.6B` model 
+```bash
+bfcl generate --model Qwen/Qwen3-0.6B-FC --local-model-path PATH_TO_FINETUNED_MODEL --test-category simple,parallel,multiple,multuturn
+```
+This will create a directory `result/` and the generated `json` files within this directory. 
+Once the model response are generated with BFCL run the following command to evaluate the performance of the trained model
+
+```bash
+bfcl evaluate --model Qwen/Qwen3-0.6B-FC --test-category simple,parallel,multiple,multuturn
+```
+
+2. 
+Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO:
+```bash
+python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config PATH/TO/CONFIG/FILE
+```
+
+For example if training is performed with `dpo_config.json`, then for comprehensive evaluation
+
+```bash
+python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config dpo_config.json
+```
+
 
 ## Customization
 
