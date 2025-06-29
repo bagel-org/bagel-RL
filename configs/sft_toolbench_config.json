@@ -14,7 +14,7 @@
     "tokenizer_padding_side": "left",
     "warmup_steps": 100,
     "max_length": 4096,
-    "use_lora": true,
+    "use_lora": false,
     "lora_r": 8,
     "lora_alpha": 32,
     "lora_dropout": 0.05
@@ -22,6 +22,7 @@
   },
   "data": {
     "strategy": "toolbench",
+    "generation_type": "real",  
     "max_samples": 70000,
     "train_split": 0.8
   },
@@ -33,7 +34,7 @@
 
   "tools":
   {
-    
+
   }
 
   
