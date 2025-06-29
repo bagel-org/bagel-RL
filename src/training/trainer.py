@@ -1,5 +1,5 @@
 """Training module for tool use models."""
-
+# PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -8,10 +8,7 @@ from typing import Dict, Any, Optional
 import torch
 from transformers import (
     AutoTokenizer, 
-    AutoModelForCausalLM, 
-    TrainingArguments,
-    Trainer,
-    DataCollatorForLanguageModeling
+    AutoModelForCausalLM
 )
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
@@ -113,31 +110,32 @@ class ToolTrainer:
         """Load and prepare model."""
         model_config = self.config["model"]
 
-        #bits and bytes configuration
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True, 
-            bnb_4bit_compute_dtype="bfloat16"
-        )
-        
-        # Load base model
-        model = AutoModelForCausalLM.from_pretrained(
-            model_config["name"],
-            trust_remote_code=model_config.get("trust_remote_code", False),
-            torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
-            device_map=model_config.get("device_map", "auto"),
-            quantization_config=bnb_config
-            
-        )
-        
 
-        model = prepare_model_for_kbit_training(model)
-        # Resize embeddings for new tokens
-        #model.resize_token_embeddings(len(self.tokenizer))
-        
-        # Apply LoRA if specified
-        if self.config["training"].get("use_lora", True):
+        if self.config["training"].get("use_lora",True):
+
+            #bits and bytes configuration
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True, 
+                bnb_4bit_compute_dtype="bfloat16"
+            )
+            
+            # Load base model
+            model = AutoModelForCausalLM.from_pretrained(
+                model_config["name"],
+                trust_remote_code=model_config.get("trust_remote_code", False),
+                torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
+                device_map=model_config.get("device_map", "auto"),
+                quantization_config=bnb_config
+                
+            )
+            
+
+            model = prepare_model_for_kbit_training(model)
+            # Resize embeddings for new tokens
+            #model.resize_token_embeddings(len(self.tokenizer))
+            
             lora_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
                 inference_mode=False,
@@ -149,6 +147,16 @@ class ToolTrainer:
             model = get_peft_model(model, lora_config)
             model.print_trainable_parameters()
         
+        else:
+
+             # Load base model
+            model = AutoModelForCausalLM.from_pretrained(
+                model_config["name"],
+                trust_remote_code=model_config.get("trust_remote_code", False),
+                torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
+                device_map=model_config.get("device_map", "auto"),
+            )
+    
         return model
     
     def train(self, resume_from_checkpoint: Optional[str] = None):
@@ -191,7 +199,7 @@ class ToolTrainer:
             fp16=True, #turn it to true if using gpu
             max_grad_norm=1.0,
             optim = "adamw_torch" ,
-            max_seq_length=self.config["training"].get("max_length",4096),
+            max_seq_length=self.config["training"].get("max_length",2048),
             label_names = ["labels"]
             )
        
@@ -205,6 +213,7 @@ class ToolTrainer:
             eval_dataset    = self.eval_dataset,
             args            = training_args,
             processing_class       = self.tokenizer,
+            
             
         )
 
