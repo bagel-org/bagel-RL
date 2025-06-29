@@ -144,7 +144,7 @@ class DataGenerator:
             return sample
 
         tokenised = data.map(tokenize, remove_columns=data.column_names)
-        tokenised = tokenised.shuffle(seed=42).train_test_split(test_size=0.01)
+        tokenised = tokenised.shuffle(seed=42).train_test_split(test_size=1-self.data_config["train_split"])
 
         dataset_train = tokenised["train"]
         dataset_eval = tokenised['test']
