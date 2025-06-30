@@ -24,7 +24,7 @@ source venv/bin/activate
 # Supervised fine-tuning with manual templates
 python train.py --config configs/sft_toolbench_config.json --outdir outputs/toolbench_results
 
-# DPO training with teacher mode
+# DPO training with manual templates
 python train.py --config configs/dpo_config.json --outdir outputs/dpo_results
 ```
 
