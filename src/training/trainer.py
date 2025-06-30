@@ -70,7 +70,7 @@ class ToolTrainer:
             tokenizer = AutoTokenizer.from_pretrained(
                 model_name,
                 trust_remote_code=self.config["model"].get("trust_remote_code", False),
-                use_fast = True
+                
             )
 
             return tokenizer
@@ -84,7 +84,7 @@ class ToolTrainer:
             tokenizer = AutoTokenizer.from_pretrained(
                 model_name,
                 trust_remote_code=self.config["model"].get("trust_remote_code", False),
-                use_fast = True
+                
             )
 
         
@@ -102,7 +102,6 @@ class ToolTrainer:
             #Set pad token if not exists
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
-                tokenizer.padding_size = "left"
         
             return tokenizer
     
@@ -156,6 +155,9 @@ class ToolTrainer:
                 torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
                 device_map=model_config.get("device_map", "auto"),
             )
+
+            # Resize embeddings for new tokens
+            model.resize_token_embeddings(len(self.tokenizer))
     
         return model
     
@@ -253,6 +255,7 @@ class ToolTrainer:
             train_dataset=preference_dataset,
             processing_class=self.tokenizer,
         )
+        
         
         # Train
         dpo_trainer.train()
