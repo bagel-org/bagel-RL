@@ -40,8 +40,9 @@ def main():
     print("=" * 50)
     
     examples = [
-        ("calculator_config.json", "Supervised Fine-tuning with Manual Templates"),
-        ("ppo_config.json", "PPO Training with Teacher Mode")
+        ("dpo_config.json", "DPO Training with manual templates"),
+        ("sft_toolbech_config.json", "Supervised Fine-tuning with Toolbench Data")
+        
     ]
     
     for config_file, description in examples:
