@@ -230,7 +230,7 @@ Implement new data generation strategies in `src/data/data_generator.py`.
 
 This playground is designed for:
 
-- **Junior Engineers**: Learning RL and tool use
+- **RL hobbyists**: Learning RL and tool use
 - **Researchers**: Reproducible tool use experiments
 - **Prototyping**: Quick experimentation with tool integration
 
