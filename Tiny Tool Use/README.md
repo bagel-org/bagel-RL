@@ -1,14 +1,13 @@
-# LLM Tool Use Training Playground
+# Tiny Tool Use
 
-A minimal, reproducible framework for training open-source LLMs to invoke external tools using gradient-based reinforcement learning methods.
+An intentionally-tiny yet production-ready open-source library for fine-tuning Large Language Models (LLMs) to make robust, auditable tool calls.
 
 ## Features
 
-- **Multiple Data Sources**: ToolBench integration, teacher mode (Toolformer-style), and manual templating
-- **Flexible Training**: Reinforcement learning with DPO, and supervised fine-tuning
-- **Configuration-Driven**: JSON-based tool definitions and training recipes
-- **Reproducible**: Fixed seeds, logging, and evaluation metrics
-- **Extensible**: Easy to add new tools and training methods
+- **Configuration-only workflows** – every experiment, tool schema, and hyper-parameter lives in a JSON file so results travel cleanly between repos.
+- **Interchangeable optimisers** – swap Supervised Fine-Tuning, Direct Preference Optimisation (DPO), or synthetic teacher signals with a single config flag.
+- **First-class evaluation support** – TensorBoard dashboards and ready-made Berkeley Function Calling Leaderboard scripts.
+- **Dataset flexibility** – plug in real data, generate synthetic traces, or compose both without touching core code.
 
 ## Quick Start
 
@@ -70,7 +69,7 @@ python examples/run_examples.py
 
 ## Configuration
 
-The framework uses JSON configuration files to define:
+The library uses JSON configuration files to define:
 
 ### Model Configuration
 ```json
@@ -136,7 +135,7 @@ define the tools as well as the dataset.
 
 ## Built-in Tools
 
-The playground includes several built-in tools for testing:
+The library includes several built-in tools for testing:
 
 - **Calculator**: Basic arithmetic operations
 - **Weather**: Mock weather API
@@ -154,7 +153,7 @@ python train.py --config configs/sft_toolbench_config.json --output-dir outputs/
 
 ## Evaluation
 
-There are two evaluation criterion for the framework. 
+There are two evaluation criteria for the library. 
 1. Berkeley Function Calling Leaderboard evaluation
 
 2. Other comprehensive evaluation metrics:
@@ -228,7 +227,7 @@ Implement new data generation strategies in `src/data/data_generator.py`.
 
 ## Research Applications
 
-This playground is designed for:
+This library is designed for:
 
 - **RL hobbyists**: Learning RL and tool use
 - **Researchers**: Reproducible tool use experiments
