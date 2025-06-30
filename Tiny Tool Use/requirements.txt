@@ -22,6 +22,7 @@ gdown>=5.2.0
 tensorboard>=2.13.0
 rouge-score>=0.1.2
 bert-score>=0.3.13
+bfcl>=1.0.1
 
 # Utilities
 tqdm>=4.65.0
