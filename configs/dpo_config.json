@@ -1,6 +1,6 @@
 {
   "model": {
-    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "name": "Qwen/Qwen3-0.6B",
     "trust_remote_code": true,
     "torch_dtype": "float16",
     "device_map": "mps"
@@ -20,6 +20,7 @@
   },
   "data": {
     "strategy": "teacher_mode",
+    "generation_type": "synthetic",
     "max_samples": 1000,
     "train_split": 0.8
   },
