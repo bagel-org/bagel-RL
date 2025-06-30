@@ -39,7 +39,7 @@ python save_merge_model.py --base_model BASE-MODEL-NAME --adapter_path PATH/TO/S
 
 4. **Evaluate Trained Model**:
 ```bash
-python evaluate.py --model-path outputs/dpo_results --config configs/dpo_config.json
+python evaluate.py --model-path PATH/TO/FINAL/SAVED/MODEL --config PATH/TO/TRAINING/CONFIGURATION/JSON/FILE
 ```
 
 5. **Interactive Examples**:
