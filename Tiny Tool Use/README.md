@@ -168,7 +168,7 @@ python train.py --config configs/dpo_config.json --output-dir outputs/dpo_manual
 ## Evaluation
 
 There are two evaluation criteria for the library. 
-1. Berkeley Function Calling Leaderboard evaluation
+1. Berkeley Function Calling Leaderboard evaluation (BFCL)
 
 2. Other comprehensive evaluation metrics:
 
@@ -178,7 +178,9 @@ There are two evaluation criteria for the library.
   - **Response Quality**: Overall response quality
 
 
-1. To run the evaluation of a trained model on Berkeley Function Calling Leaderboard (BFCL) use the following instruction. 
+1. #### BFCL Evaluation
+
+ To run the evaluation of a trained model on Berkeley Function Calling Leaderboard (BFCL) use the following instruction. 
 
 ```bash
 # In your shell environment
@@ -197,7 +199,9 @@ Once the model response are generated with BFCL run the following command to eva
 bfcl evaluate --model Qwen/Qwen3-0.6B-FC --test-category simple,parallel,multiple,multuturn
 ```
 
-2. Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO with manual templates:
+2. #### Comprehensive Evaluation
+
+ Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO with manual templates:
 ```bash
 python evaluate.py --model-path outputs/dpo_manual_templates/ --config configs/dpo_config.json
 ```
