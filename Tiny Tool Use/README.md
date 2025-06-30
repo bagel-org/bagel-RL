@@ -46,6 +46,13 @@ python evaluate.py --model-path PATH/TO/FINAL/SAVED/MODEL --config PATH/TO/TRAIN
 python examples/run_examples.py
 ```
 
+6. **Tensorboard Visualization**:
+```bash
+#visualize training with tensorboard
+
+tensorboard --logdir PATH/TO/TRAINING/OUTPUT
+```
+
 ## Project Structure
 
 ```
@@ -145,10 +152,17 @@ You can easily add custom tools by extending the `ToolExecutor` class.
 
 ## Training Examples
 
-### Example 1: Calculator with SFT
+### Example 1: SFT with Toolbench data
 ```bash
-python train.py --config configs/sft_toolbench_config.json --output-dir outputs/sft_toolbench
+python train.py --config configs/sft_toolbench_config.json --output-dir outputs/sft_toolbench/
 ```
+
+### Example 2: DPO with manual_templates (Synthetic Generation)
+
+```bash
+python train.py --config configs/dpo_config.json --output-dir outputs/dpo_manual_templates/
+```
+
 
 
 ## Evaluation
@@ -183,17 +197,11 @@ Once the model response are generated with BFCL run the following command to eva
 bfcl evaluate --model Qwen/Qwen3-0.6B-FC --test-category simple,parallel,multiple,multuturn
 ```
 
-2. 
-Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO:
+2. Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO with manual templates:
 ```bash
-python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config PATH/TO/CONFIG/FILE
+python evaluate.py --model-path outputs/dpo_manual_templates/ --config configs/dpo_config.json
 ```
 
-For example if training is performed with `dpo_config.json`, then for comprehensive evaluation
-
-```bash
-python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config dpo_config.json
-```
 
 
 ## Customization
@@ -224,15 +232,6 @@ Extend the `ToolTrainer` class in `src/training/trainer.py` to add new training 
 ### Custom Data Sources
 
 Implement new data generation strategies in `src/data/data_generator.py`.
-
-## Research Applications
-
-This library is designed for:
-
-- **RL hobbyists**: Learning RL and tool use
-- **Researchers**: Reproducible tool use experiments
-- **Prototyping**: Quick experimentation with tool integration
-
 
 
 ## Contributing
