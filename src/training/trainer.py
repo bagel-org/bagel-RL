@@ -230,38 +230,62 @@ class ToolTrainer:
         self.tokenizer.save_pretrained(self.output_dir)
     
     def _train_dpo(self, resume_from_checkpoint: Optional[str] = None):
-        """Direct Preference Optimization training."""
-        logger.info("Starting DPO training...")
+        """Train the model using DPO."""
+        logger.info("Starting DPO training")
         
-        # For DPO, we need preference pairs
-        # This is a simplified implementation
+        # Make sure we're using LoRA or the training will likely fail
+        use_lora = self.config["training"].get("use_lora", True)
+
         preference_dataset = self._create_preference_dataset()
         
-        # DPO Trainer
-        dpo_trainer = DPOTrainer(
+        if not use_lora:
+            logger.warning(
+                "⚠️ You're attempting to run DPO without LoRA which may cause NaN values. "
+                "Consider enabling LoRA with 'use_lora': true in your config."
+            )
+        
+        # Setup training arguments with gradient clipping
+        training_args = DPOConfig(
+            output_dir=str(self.output_dir),
+            num_train_epochs=self.config["training"].get("num_epochs", 3),
+            per_device_train_batch_size=self.config["training"].get("batch_size", 4),
+            gradient_accumulation_steps=self.config["training"].get("gradient_accumulation_steps", 1),
+            learning_rate=self.config["training"].get("learning_rate", 5e-6),
+            max_grad_norm=self.config["training"].get("max_grad_norm", 0.3),  # Add strict gradient clipping
+            logging_steps=10,
+            save_strategy="steps",
+            save_steps=100,
+            save_total_limit=3,
+            optim=self.config["training"].get("optim", "paged_adamw_8bit"),  # Use 8-bit optimizer
+            bf16=self.config["training"].get("bf16", False),
+            fp16=self.config["training"].get("fp16", True),  # Use mixed precision
+            max_length=self.config["training"].get("max_length", 512),
+            remove_unused_columns=False,
+            beta=0.1,  # Lower beta to stabilize training
+            report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
+        )
+        
+      
+        # Create DPO trainer with improved stability
+        trainer = DPOTrainer(
             model=self.model,
-            ref_model=None,
-            args=DPOConfig(
-                output_dir=str(self.output_dir),
-                num_train_epochs=self.config["training"].get("num_epochs", 1),
-                per_device_train_batch_size=self.config["training"].get("batch_size", 4),
-                learning_rate=self.config["training"].get("learning_rate", 5e-7),
-                logging_steps=10,
-                save_steps=500,
-                report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
-                beta=self.config["training"].get("dpo_beta", 0.1),
-                label_names=['labels']
-            ),
+            ref_model=None,  # Use same model as reference
+            args=training_args,
             train_dataset=preference_dataset,
             processing_class=self.tokenizer,
         )
         
+        # Add gradient checkpointing for memory efficiency
+        if hasattr(self.model, "gradient_checkpointing_enable"):
+            self.model.gradient_checkpointing_enable()
         
         # Train
-        dpo_trainer.train()
+        logger.info("Starting DPO training")
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
         
-        # Save model
-        dpo_trainer.save_model()
+        # Save the trained model
+        trainer.save_model(self.output_dir / "dpo_model")
+        logger.info(f"Model saved to {self.output_dir / 'dpo_model'}")
     
     def _train_teacher_mode(self, resume_from_checkpoint: Optional[str] = None):
         """Teacher mode training (Toolformer-style)."""
