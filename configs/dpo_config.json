@@ -1,25 +1,40 @@
 {
   "model": {
-    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "name": "Qwen/Qwen3-0.6B",
     "trust_remote_code": true,
     "torch_dtype": "float16",
-    "device_map": "mps"
+    "device_map": "auto"
+  },
+
+  "tokenizer":{
+    "name":"Qwen/Qwen3-0.6B", 
+    "trust_remote_code": true,
+    "padding_side": "left"
   },
   "training": {
     "method": "dpo",
     "num_epochs": 100,
-    "learning_rate": 5e-5,
-    "batch_size": 4,
-    "gradient_accumulation_steps": 1,
+    "learning_rate": 1e-6,
+    "batch_size": 2,
+    "gradient_accumulation_steps": 16,
     "warmup_steps": 100,
     "max_length": 512,
     "use_lora": true,
     "lora_r": 16,
     "lora_alpha": 32,
-    "lora_dropout": 0.1
+    "lora_dropout": 0.1,
+    "max_grad_norm": 0.3,
+    "bf16": false,
+    "fp16": true,
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.999,
+    "adam_epsilon": 1e-8,
+    "weight_decay": 0.01,
+    "optim": "paged_adamw_8bit"
   },
   "data": {
-    "strategy": "teacher_mode",
+    "strategy": "manual_templates",
+    "generation_type": "synthetic",
     "max_samples": 1000,
     "train_split": 0.8
   },

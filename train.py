@@ -81,7 +81,7 @@ def main():
     try:
         # Initialize data generator
         console.print("🔄 [bold blue]Initializing data generator...[/bold blue]")
-        data_generator = DataGenerator(config["data"], config["tools"])
+        data_generator = DataGenerator(config["data"], config["tools"], config["tokenizer"])
         
         # Generate or load training data
         console.print("📊 [bold blue]Preparing training data...[/bold blue]")

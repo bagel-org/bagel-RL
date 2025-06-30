@@ -4,13 +4,13 @@ import json
 import logging
 import random
 from typing import Dict, Any, List, Tuple, Optional
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 import pandas as pd
 from ..tools.executor import ToolExecutor
-import sys
-import requests
 import os
-from datasets import Dataset
+from transformers import AutoTokenizer
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,22 +18,29 @@ logger = logging.getLogger(__name__)
 class DataGenerator:
     """Generates training data for tool use from various sources."""
     
-    def __init__(self, data_config: Dict[str, Any], tools_config: List[Dict[str, Any]]):
+    def __init__(self, data_config: Dict[str, Any], tools_config: List[Dict[str, Any]], tokenizer_config: List[Dict[str, Any]]):
         self.data_config = data_config
         self.tools_config = tools_config
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_config["name"], trust_remote_code=tokenizer_config['trust_remote_code'])
+        
+       
         self.tool_executor = ToolExecutor(tools_config)
         self.strategy = data_config["strategy"]
+        self.generation_type = data_config["generation_type"]
+
         
     def prepare_datasets(self) -> Tuple[Dataset, Dataset]:
         """Prepare training and evaluation datasets."""
-        if self.strategy == "toolbench":
-            return self._prepare_toolbench_data()
-        elif self.strategy == "teacher_mode":
+        if self.strategy == "toolbench" and self.generation_type.lower()=='real':
+            return self._prepare_real_toolbench_data()
+        elif self.strategy == "toolbench" and self.generation_type.lower()=='synthetic':
+            return self._prepare_synthetic_toolbench_data()
+        elif self.strategy == "teacher_mode" and self.generation_type.lower()=='synthetic':
             return self._prepare_teacher_mode_data()
-        elif self.strategy == "manual_templates":
+        elif self.strategy == "manual_templates" and self.generation_type.lower()=='synthetic':
             return self._prepare_manual_template_data()
         else:
-            raise ValueError(f"Unknown data strategy: {self.strategy}")
+            raise ValueError(f"Unknown data strategy: {self.strategy}. Data generation strategy {self.generation_type} is not implemented for {self.strategy} ")
     
 
     def _download_from_google_drive(self, folder_url, destination_dir):
@@ -60,17 +67,29 @@ class DataGenerator:
 
 
 
-    def _role_map(self,raw_role: str) -> str:
-        """Convert ToolBench role tags to ChatML-compatible ones."""
-        if raw_role == "function":      # ToolBench writes tool output with this tag
-            return "tool"               # Qwen2.5 chat template recognises 'tool'
-        return raw_role                 # system / user / assistant stay as-is
+        
+        
+    def _prepare_synthetic_toolbench_data(self)->Tuple[Dataset, Dataset]:
+
+        "Get the synthetic tool bench data"
+
+        logger.info("Generating synthetic tool bench data...")
+
+        synthetic_data = self._generate_synthetic_toolbench_data()
+
+        return self._split_dataset(synthetic_data)
+
+
+
+
 
     
-    def _prepare_toolbench_data(self,emit_partial: bool = True) -> Tuple[Dataset, Dataset]:
+    def _prepare_real_toolbench_data(self) -> Tuple[Dataset, Dataset]:
         """Get toolbench data."""
         logger.info("Obtaining toolbench data...")
-        synthetic_data = self._generate_synthetic_toolbench_data()
+
+        assistant_id = self.tokenizer.convert_tokens_to_ids("<|assistant|>")
+        # synthetic_data = self._generate_synthetic_toolbench_data()
 
         #download the data from google drive link 
         destination_dir = './data/toolbench/'
@@ -79,55 +98,61 @@ class DataGenerator:
             destination_dir = './data/toolbench/'
             self._download_from_google_drive(folder_url, destination_dir)
         
-        with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_train.json', 'r') as f:
-            tool_data_train = json.load(f)
+        #loading the toolbench data
+        data = load_dataset("json", data_files="./data/toolbench/data/data/toolllama_G123_dfs_train.json")["train"]
         
-        with open('/workspace/bagel-RL/data/toolbench/data/data/toolllama_G123_dfs_eval.json', 'r') as f:
-            tool_data_eval = json.load(f)
+        data = data.shuffle(seed=42).select(range(self.data_config["max_samples"]))
+     
+        def to_messages(conv):
+             # Map any role names that can appear in ToolBench/Qwen
+            role_map = {
+                "system": "system",
+                "user": "user",
+                "assistant": "assistant",
+                "tool": "tool",           # tool_response in some repos
+                "function": "tool",       # treat function output the same as tool
+                "tool_response": "tool",  # safety net for other dumps
+                "tool_call": "assistant", # if your dump keeps the call separate
+            }
 
-        rows = []
-        print("Preparing Training Dataset")
-        for sample in tool_data_train:
-            convo = []
-            for block in sample["conversations"]:
-                convo.append({
-                    "role":    self._role_map(block["from"]),
-                    "content": block["value"].strip()
-                })
+            unknown = {m["from"] for m in conv} - role_map.keys()
+            if unknown:                       # fail fast if you meet something new
+                raise ValueError(f"Unknown role(s): {unknown}")
 
-                # emit an example whenever the assistant has just spoken
-                if emit_partial and block["from"] == "assistant":
-                    rows.append({"messages": convo.copy()})
-
-            # also keep the whole trajectory once (useful for full-context SFT)
-            if not emit_partial:
-                rows.append({"messages": convo})
+            return [
+                {"role": role_map[m["from"]], "content": m["value"]}
+                for m in conv
+            ]
         
-        train_dataset = Dataset.from_list(rows)
+        def tokenize(sample):
+            msgs = to_messages(sample["conversations"])
+            chat_text = self.tokenizer.apply_chat_template(msgs, tokenize=False,
+                                        add_generation_prompt=False)  # Qwen-3 Jinja template:contentReference[oaicite:1]{index=1}
+            
+            
+            ids = self.tokenizer(chat_text, return_tensors="pt").input_ids[0]
+            labels = ids.clone()
 
-        print("Preparing Evaluation Dataset")
+            # *** non-assistant masking ***
+            ptr = 0
+            for msg in msgs:
+                n = len(self.tokenizer(msg["content"]).input_ids) + 1  # +EOS
+                if msg["role"] != "assistant":
+                    labels[ptr:ptr+n] = -100        # ignore in loss
+                ptr += n
+            sample["input_ids"], sample["labels"] = ids, labels
+            return sample
 
-        rows_eval = []
-        for sample in tool_data_eval:
-            convo = []
-            for block in sample["conversations"]:
-                convo.append({
-                    "role":    self._role_map(block["from"]),
-                    "content": block["value"].strip()
-                })
+        tokenised = data.map(tokenize, remove_columns=data.column_names)
+        tokenised = tokenised.shuffle(seed=42).train_test_split(test_size=1-self.data_config["train_split"])
 
-                # emit an example whenever the assistant has just spoken
-                if emit_partial and block["from"] == "assistant":
-                    rows_eval.append({"messages": convo.copy()})
+        dataset_train = tokenised["train"]
+        dataset_eval = tokenised['test']
 
-            # also keep the whole trajectory once (useful for full-context SFT)
-            if not emit_partial:
-                rows_eval.append({"messages": convo})
+        return dataset_train, dataset_eval
 
-        
-        test_dataset = Dataset.from_list(rows_eval)
-        
-        return train_dataset, test_dataset
+
+    
     
     def _prepare_teacher_mode_data(self) -> Tuple[Dataset, Dataset]:
         """Generate data using teacher mode (Toolformer-style)."""

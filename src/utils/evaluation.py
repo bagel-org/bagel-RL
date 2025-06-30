@@ -82,7 +82,10 @@ class ToolUseEvaluator:
         else:
             human_part = prompt
         
+        # Encode input and move to the same device as the model
         inputs = self.tokenizer.encode(human_part, return_tensors="pt")
+        device = self.model.device  # Get the model's device
+        inputs = inputs.to(device)  # Move input tensor to the same device
         
         with torch.no_grad():
             outputs = self.model.generate(
@@ -95,6 +98,7 @@ class ToolUseEvaluator:
                 eos_token_id=self.tokenizer.eos_token_id
             )
         
+       
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=False)
         
         # Extract just the generated part

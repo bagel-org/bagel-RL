@@ -1,22 +1,22 @@
 """Training module for tool use models."""
-
+# PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+
 import torch
 from transformers import (
     AutoTokenizer, 
-    AutoModelForCausalLM, 
-    TrainingArguments,
-    Trainer,
-    DataCollatorForLanguageModeling
+    AutoModelForCausalLM
 )
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from trl import DPOTrainer, SFTTrainer
 from trl import DPOConfig, SFTConfig
 from torch.utils.tensorboard import SummaryWriter
+from transformers import BitsAndBytesConfig
+from peft import prepare_model_for_kbit_training
 
 from ..tools.executor import ToolExecutor
 
@@ -61,47 +61,80 @@ class ToolTrainer:
     
     def _load_tokenizer(self) -> AutoTokenizer:
         """Load tokenizer."""
+
         model_name = self.config["model"]["name"]
+
+        if "qwen3" in model_name.lower() and "toolbench" in self.config["data"]["strategy"]:
+            
+            
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                trust_remote_code=self.config["model"].get("trust_remote_code", False),
+                
+            )
+
+            return tokenizer
         
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
-            padding_side=self.config["training"].get("tokenizer_padding_side",False),
-            trust_remote_code=self.config["model"].get("trust_remote_code", False)
-        )
         
-        # # Add special tokens for tool calls
-        # special_tokens = {
-        #     "additional_special_tokens": [
-        #         "[TOOL_CALL]", "[/TOOL_CALL]", 
-        #         "[RESULT]", "[/RESULT]"
-        #     ]
-        # }
+        else:
+
+
+            model_name = self.config["model"]["name"]
+            
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                trust_remote_code=self.config["model"].get("trust_remote_code", False),
+                
+            )
+
         
-        # tokenizer.add_special_tokens(special_tokens)
         
-        # Set pad token if not exists
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
+            # Add special tokens for tool calls
+            special_tokens = {
+                "additional_special_tokens": [
+                    "[TOOL_CALL]", "[/TOOL_CALL]", 
+                    "[RESULT]", "[/RESULT]"
+                ]
+            }
+            
+            tokenizer.add_special_tokens(special_tokens)
+            
+            #Set pad token if not exists
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
         
-        return tokenizer
+            return tokenizer
     
     def _load_model(self) -> AutoModelForCausalLM:
         """Load and prepare model."""
         model_config = self.config["model"]
-        
-        # Load base model
-        model = AutoModelForCausalLM.from_pretrained(
-            model_config["name"],
-            trust_remote_code=model_config.get("trust_remote_code", False),
-            torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
-            device_map=model_config.get("device_map", "auto")
-        )
-        
-        # Resize embeddings for new tokens
-        #model.resize_token_embeddings(len(self.tokenizer))
-        
-        # Apply LoRA if specified
-        if self.config["training"].get("use_lora", True):
+
+
+        if self.config["training"].get("use_lora",True):
+
+            #bits and bytes configuration
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True, 
+                bnb_4bit_compute_dtype="bfloat16"
+            )
+            
+            # Load base model
+            model = AutoModelForCausalLM.from_pretrained(
+                model_config["name"],
+                trust_remote_code=model_config.get("trust_remote_code", False),
+                torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
+                device_map=model_config.get("device_map", "auto"),
+                quantization_config=bnb_config
+                
+            )
+            
+
+            model = prepare_model_for_kbit_training(model)
+            # Resize embeddings for new tokens
+            #model.resize_token_embeddings(len(self.tokenizer))
+            
             lora_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
                 inference_mode=False,
@@ -113,6 +146,19 @@ class ToolTrainer:
             model = get_peft_model(model, lora_config)
             model.print_trainable_parameters()
         
+        else:
+
+             # Load base model
+            model = AutoModelForCausalLM.from_pretrained(
+                model_config["name"],
+                trust_remote_code=model_config.get("trust_remote_code", False),
+                torch_dtype=getattr(torch, model_config.get("torch_dtype", "float16")),
+                device_map=model_config.get("device_map", "auto"),
+            )
+
+            # Resize embeddings for new tokens
+            model.resize_token_embeddings(len(self.tokenizer))
+    
         return model
     
     def train(self, resume_from_checkpoint: Optional[str] = None):
@@ -132,7 +178,7 @@ class ToolTrainer:
         
         
         # Training arguments
-        training_args = TrainingArguments(
+        training_args = SFTConfig(
             output_dir=str(self.output_dir),
             overwrite_output_dir=True,
             num_train_epochs=self.config["training"].get("num_epochs", 3),
@@ -152,26 +198,14 @@ class ToolTrainer:
             greater_is_better=False,
             report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
             dataloader_pin_memory=False,
-            fp16=True, #turn it to true if using gpu
+            fp16=self.config["training"].get("use_lora",True), #turn it to true if using gpu
             max_grad_norm=1.0,
             optim = "adamw_torch" ,
+            max_seq_length=self.config["training"].get("max_length",2048),
             label_names = ["labels"]
             )
        
 
-        peft_cfg = LoraConfig(
-        r=64, lora_alpha=128, lora_dropout=0.05,
-        bias="none", task_type="CAUSAL_LM",
-        target_modules=["q_proj","k_proj","v_proj","o_proj",
-                        "gate_proj","up_proj","down_proj"]  # fits Qwen block names
-        )
-        
-
-        sft_cfg = SFTConfig(
-        dataset_text_field = "messages",   # TRL uses messages-to-chat-template
-        packing            = True,        # token-pack examples efficiently
-        max_seq_length     = 2048
-        )
         
         
         
@@ -179,22 +213,14 @@ class ToolTrainer:
             model           = self.model,
             train_dataset   = self.train_dataset,
             eval_dataset    = self.eval_dataset,
-            peft_config     = peft_cfg,
             args            = training_args,
             processing_class       = self.tokenizer,
             
+            
         )
 
-        # Initialize trainer
-        # trainer = Trainer(
-        #     model=self.model,
-        #     args=training_args,
-        #     train_dataset=tokenized_train,
-        #     eval_dataset=tokenized_eval,
-        #     data_collator=data_collator,
-        #     tokenizer=self.tokenizer,
-        #     #label_names=["labels"]  # Fix the PEFT warning
-        # )
+    
+       
         
         # Train
         trainer.train(resume_from_checkpoint=resume_from_checkpoint)
@@ -204,37 +230,62 @@ class ToolTrainer:
         self.tokenizer.save_pretrained(self.output_dir)
     
     def _train_dpo(self, resume_from_checkpoint: Optional[str] = None):
-        """Direct Preference Optimization training."""
-        logger.info("Starting DPO training...")
+        """Train the model using DPO."""
+        logger.info("Starting DPO training")
         
-        # For DPO, we need preference pairs
-        # This is a simplified implementation
+        # Make sure we're using LoRA or the training will likely fail
+        use_lora = self.config["training"].get("use_lora", True)
+
         preference_dataset = self._create_preference_dataset()
         
-        # DPO Trainer
-        dpo_trainer = DPOTrainer(
+        if not use_lora:
+            logger.warning(
+                "⚠️ You're attempting to run DPO without LoRA which may cause NaN values. "
+                "Consider enabling LoRA with 'use_lora': true in your config."
+            )
+        
+        # Setup training arguments with gradient clipping
+        training_args = DPOConfig(
+            output_dir=str(self.output_dir),
+            num_train_epochs=self.config["training"].get("num_epochs", 3),
+            per_device_train_batch_size=self.config["training"].get("batch_size", 4),
+            gradient_accumulation_steps=self.config["training"].get("gradient_accumulation_steps", 1),
+            learning_rate=self.config["training"].get("learning_rate", 5e-6),
+            max_grad_norm=self.config["training"].get("max_grad_norm", 0.3),  # Add strict gradient clipping
+            logging_steps=10,
+            save_strategy="steps",
+            save_steps=100,
+            save_total_limit=3,
+            optim=self.config["training"].get("optim", "paged_adamw_8bit"),  # Use 8-bit optimizer
+            bf16=self.config["training"].get("bf16", False),
+            fp16=self.config["training"].get("fp16", True),  # Use mixed precision
+            max_length=self.config["training"].get("max_length", 512),
+            remove_unused_columns=False,
+            beta=0.1,  # Lower beta to stabilize training
+            report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
+        )
+        
+      
+        # Create DPO trainer with improved stability
+        trainer = DPOTrainer(
             model=self.model,
-            ref_model=None,
-            args=DPOConfig(
-                output_dir=str(self.output_dir),
-                num_train_epochs=self.config["training"].get("num_epochs", 1),
-                per_device_train_batch_size=self.config["training"].get("batch_size", 4),
-                learning_rate=self.config["training"].get("learning_rate", 5e-7),
-                logging_steps=10,
-                save_steps=500,
-                report_to="tensorboard" if self.config.get("tensorboard", {}).get("enabled") else None,
-                beta=self.config["training"].get("dpo_beta", 0.1),
-                label_names=['labels']
-            ),
+            ref_model=None,  # Use same model as reference
+            args=training_args,
             train_dataset=preference_dataset,
             processing_class=self.tokenizer,
         )
         
-        # Train
-        dpo_trainer.train()
+        # Add gradient checkpointing for memory efficiency
+        if hasattr(self.model, "gradient_checkpointing_enable"):
+            self.model.gradient_checkpointing_enable()
         
-        # Save model
-        dpo_trainer.save_model()
+        # Train
+        logger.info("Starting DPO training")
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        
+        # Save the trained model
+        trainer.save_model(self.output_dir / "dpo_model")
+        logger.info(f"Model saved to {self.output_dir / 'dpo_model'}")
     
     def _train_teacher_mode(self, resume_from_checkpoint: Optional[str] = None):
         """Teacher mode training (Toolformer-style)."""

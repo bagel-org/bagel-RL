@@ -1,10 +1,16 @@
 {
   "model": {
-    "name": "microsoft/DialoGPT-small",
+    "name": "Qwen/Qwen3-0.6B",
     "trust_remote_code": false,
     "torch_dtype": "float16",
     "device_map": "auto"
   },
+
+   "tokenizer":{
+    "name":"Qwen/Qwen3-0.6B", 
+    "trust_remote_code": true
+  },
+
   "training": {
     "method": "teacher_mode",
     "num_epochs": 2,
@@ -20,6 +26,7 @@
   },
   "data": {
     "strategy": "teacher_mode",
+    "generation_type":"synthetic",
     "max_samples": 150,
     "train_split": 0.85
   },
