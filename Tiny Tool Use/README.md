@@ -46,13 +46,6 @@ python evaluate.py --model-path PATH/TO/FINAL/SAVED/MODEL --config PATH/TO/TRAIN
 python examples/run_examples.py
 ```
 
-6. **Tensorboard Visualization**:
-```bash
-#visualize training with tensorboard
-
-tensorboard --logdir PATH/TO/TRAINING/OUTPUT
-```
-
 ## Project Structure
 
 ```
@@ -152,23 +145,16 @@ You can easily add custom tools by extending the `ToolExecutor` class.
 
 ## Training Examples
 
-### Example 1: SFT with Toolbench data
+### Example 1: Calculator with SFT
 ```bash
-python train.py --config configs/sft_toolbench_config.json --output-dir outputs/sft_toolbench/
+python train.py --config configs/sft_toolbench_config.json --output-dir outputs/sft_toolbench
 ```
-
-### Example 2: DPO with manual_templates (Synthetic Generation)
-
-```bash
-python train.py --config configs/dpo_config.json --output-dir outputs/dpo_manual_templates/
-```
-
 
 
 ## Evaluation
 
 There are two evaluation criteria for the library. 
-1. Berkeley Function Calling Leaderboard evaluation (BFCL)
+1. Berkeley Function Calling Leaderboard evaluation
 
 2. Other comprehensive evaluation metrics:
 
@@ -178,9 +164,7 @@ There are two evaluation criteria for the library.
   - **Response Quality**: Overall response quality
 
 
-1. #### BFCL Evaluation
-
- To run the evaluation of a trained model on Berkeley Function Calling Leaderboard (BFCL) use the following instruction. 
+1. To run the evaluation of a trained model on Berkeley Function Calling Leaderboard (BFCL) use the following instruction. 
 
 ```bash
 # In your shell environment
@@ -199,13 +183,17 @@ Once the model response are generated with BFCL run the following command to eva
 bfcl evaluate --model Qwen/Qwen3-0.6B-FC --test-category simple,parallel,multiple,multuturn
 ```
 
-2. #### Comprehensive Evaluation
-
- Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO with manual templates:
+2. 
+Run comprehensive evaluation with `Qwen3-0.6B` finetuned using DPO:
 ```bash
-python evaluate.py --model-path outputs/dpo_manual_templates/ --config configs/dpo_config.json
+python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config PATH/TO/CONFIG/FILE
 ```
 
+For example if training is performed with `dpo_config.json`, then for comprehensive evaluation
+
+```bash
+python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config dpo_config.json
+```
 
 
 ## Customization
@@ -237,6 +225,15 @@ Extend the `ToolTrainer` class in `src/training/trainer.py` to add new training 
 
 Implement new data generation strategies in `src/data/data_generator.py`.
 
+## Potential Applications
+
+This library can serve as a foundation for a variety of tool-use research problems and production scenarios, including:
+
+- **Robotics control** – grounding language instructions into low-level robot actions through tool calls.
+- **Autonomous agents** – building multi-step assistants that plan, call, and combine external APIs.
+- **Workflow automation** – integrating structured tool calls into data-engineering or MLOps pipelines.
+- **Information retrieval** – augmenting LLM responses with live search or specialized knowledge bases.
+- **Education & tutoring systems** – teaching models to execute calculators, solvers, or simulators on demand.
 
 ## Contributing
 
