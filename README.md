@@ -21,10 +21,16 @@
 
 ---
 
+## Overview
+
+Bagel Labs explores reinforcement learning (RL) techniques that power next-generation distributed machine-learning systems. From training large language models to coordinating multi-GPU workloads, we focus on scalable RL algorithms, reproducible research, and open-source tooling that the community can build upon.
+
+---
+
 ## Projects
 
-* ★ [**Tiny Tool Use**](Tiny%20Tool%20Use/) – an intentionally-tiny yet production-ready library for fine-tuning LLMs to make robust, auditable tool calls.
-* More projects coming soon — star this repository to get notified when we release them!
+* [**Tiny Tool Use**](Tiny%20Tool%20Use/) – an intentionally-tiny yet production-ready library for fine-tuning LLMs to make robust, auditable tool calls.
+* More projects coming soon — give the repo a star to receive updates.
 
 ---
 
