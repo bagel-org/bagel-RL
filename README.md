@@ -1,13 +1,33 @@
-# Bagel Labs Reinforcement Learning
+<p align="center">
+  <img src="logo.png" alt="Bagel Labs logo" width="220"/>
+</p>
 
-Welcome to the Bagel Labs open-source Reinforcement Learning (RL) repository. 
+<p align="center">
+  <a href="https://github.com/bagel-org/bagel-RL">
+    <img src="https://img.shields.io/github/stars/bagel-org/bagel-RL?style=social" alt="Star on GitHub"/>
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://x.com/bagelopenAI">
+    <img src="https://img.shields.io/twitter/follow/bagelopenAI?style=social" alt="Follow on X"/>
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://blog.bagel.net/subscribe">
+    <img src="https://img.shields.io/badge/Subscribe-Substack-orange?logo=substack&logoColor=white" alt="Subscribe on Substack"/>
+  </a>
+</p>
 
-This repo aggregates our public research and engineering efforts focused on applying RL to distributed machine learning systems—including but not limited to Large Language Models (LLMs). Current sub-projects include:
 
-* **Tiny Tool Use** – an intentionally-tiny yet production-ready library for fine-tuning LLMs to make robust, auditable tool calls.
+<p align="center"><em>Open-source RL for distributed learning systems by Bagel Labs</em></p>
 
-We plan to publish additional tooling, papers, and reference implementations here as they mature.
+---
+
+## Projects
+
+* ★ [**Tiny Tool Use**](Tiny%20Tool%20Use/) – an intentionally-tiny yet production-ready library for fine-tuning LLMs to make robust, auditable tool calls.
+* More projects coming soon — star this repository to get notified when we release them!
+
+---
 
 ## License
 
-All code in this repository is released under the MIT License (see individual sub-project directories for details). 
+See individual sub-project directories for license details.
