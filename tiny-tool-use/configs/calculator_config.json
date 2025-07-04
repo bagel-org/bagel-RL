@@ -1,0 +1,58 @@
+{
+  "model": {
+    "name": "Qwen/Qwen3-0.6B",
+    "trust_remote_code": false,
+    "torch_dtype": "float16",
+    "device_map": "auto"
+  },
+  "tokenizer": {
+    "name": "Qwen/Qwen3-0.6B", 
+    "trust_remote_code": true
+  },
+  "training": {
+    "method": "sft",
+    "num_epochs": 2,
+    "learning_rate": 5e-5,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "warmup_steps": 50,
+    "max_length": 512,
+    "use_lora": true,
+    "lora_r": 8,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05
+  },
+  "data": {
+    "strategy": "teacher_mode",
+    "generation_type": "synthetic",
+    "max_samples": 200,
+    "train_split": 0.85
+  },
+  "tools": [
+    {
+      "name": "calculator",
+      "description": "Perform mathematical calculations including basic arithmetic and simple expressions",
+      "type": "function",
+      "function": "calculator",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "description": "Mathematical expression to evaluate (supports +, -, *, /, **, parentheses)"
+          }
+        },
+        "required": ["expression"]
+      }
+    }
+  ],
+  "evaluation": {
+    "metrics": ["tool_accuracy", "format_correctness", "execution_success", "response_quality"],
+    "eval_steps": 25
+  },
+  "tensorboard": {
+    "enabled": true,
+    "log_dir": "outputs/runs"
+  },
+  "seed": 42
+}

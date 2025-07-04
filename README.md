@@ -29,7 +29,7 @@ This repository is a collection of open-source distributed and non-distributed r
 
 ## Projects
 
-* [**Tiny Tool Use**](Tiny%20Tool%20Use/) – an intentionally-tiny yet production-ready library for fine-tuning LLMs to make robust, auditable tool calls.
+* [**Tiny Tool Use**](tiny-tool-use/) – an intentionally-tiny yet production-ready library for fine-tuning LLMs to make robust, auditable tool calls.
 * More projects coming soon — give the repo a star to receive updates.
 
 ---

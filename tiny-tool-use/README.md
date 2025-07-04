@@ -21,10 +21,10 @@ source venv/bin/activate
 2. **Run Basic Training**:
 ```bash
 # Supervised fine-tuning with manual templates
-python train.py --config configs/sft_toolbench_config.json --outdir outputs/toolbench_results
+python train.py --config configs/sft_toolbench_config.json --output-dir outputs/toolbench_results
 
 # DPO training with manual templates
-python train.py --config configs/dpo_config.json --outdir outputs/dpo_results
+python train.py --config configs/dpo_config.json --output-dir outputs/dpo_results
 ```
 
 3. **Merging LORA Adapters**
@@ -147,6 +147,11 @@ You can easily add custom tools by extending the `ToolExecutor` class.
 
 ### Example 1: Calculator with SFT
 ```bash
+python train.py --config configs/calculator_config.json --output-dir outputs/calculator_results
+```
+
+### Example 2: ToolBench with SFT
+```bash
 python train.py --config configs/sft_toolbench_config.json --output-dir outputs/sft_toolbench
 ```
 
@@ -192,7 +197,13 @@ python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config PATH/TO/CONFIG/
 For example if training is performed with `dpo_config.json`, then for comprehensive evaluation
 
 ```bash
-python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config dpo_config.json
+python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config configs/dpo_config.json
+```
+
+Or if training is performed with `calculator_config.json`:
+
+```bash
+python evaluate.py --model-path PATH/TO/FINETUNED/MODEL --config configs/calculator_config.json
 ```
 
 
